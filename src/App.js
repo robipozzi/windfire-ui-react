@@ -1,22 +1,17 @@
-import logo from './logo.svg';
 import './App.css';
+import ArchitectureDiagram from './components/ArchitectureDiagram';
 
 function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
+        <h1 style={{ fontSize: '1.4rem', marginBottom: '0.25rem' }}>
+          windfire-ui-react
+        </h1>
+        <p style={{ fontSize: '0.9rem', color: '#aaaaaa', marginBottom: '2rem', marginTop: 0 }}>
+          Windfire System Architecture
         </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
+        <ArchitectureDiagram />
       </header>
     </div>
   );
