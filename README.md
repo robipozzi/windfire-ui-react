@@ -1,4 +1,4 @@
-# Windfire UI React
+# Windfire UI
 
 A browser-based UI for the Windfire application, built with React 18.
 
