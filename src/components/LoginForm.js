@@ -27,8 +27,7 @@ export default function LoginForm() {
     <div className="login-bg">
       <div className="login-card">
         <div className="login-brand">
-          <span className="login-brand-name">windfire</span>
-          <span className="login-brand-tag">ui-react</span>
+          <span className="login-brand-name">Windfire</span>
         </div>
 
         <h2 className="login-title">Sign in</h2>
