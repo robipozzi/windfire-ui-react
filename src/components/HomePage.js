@@ -4,9 +4,9 @@ import Header from './Header';
 import Footer from './Footer';
 import WindfireLogo from './WindfireLogo';
 import PlaceholderPage from './PlaceholderPage';
+import RestaurantsPage from './RestaurantsPage';
 
 const PAGE_TITLES = {
-  restaurants: 'Restaurants',
   calendar: 'Calendar',
   maps: 'Maps',
 };
@@ -21,6 +21,9 @@ export default function HomePage({ user, onLogout }) {
           <WindfireLogo size="large" />
         </div>
       );
+    }
+    if (currentPage === 'restaurants') {
+      return <RestaurantsPage />;
     }
     return <PlaceholderPage title={PAGE_TITLES[currentPage]} />;
   }
