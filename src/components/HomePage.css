@@ -1,0 +1,19 @@
+.wf-home {
+  min-height: 100vh;
+  background: radial-gradient(ellipse at top, #1a1a2e 0%, #0d0d1a 70%);
+  color: #e0e0e0;
+}
+
+.wf-home-main {
+  padding-top: 56px;  /* header height */
+  padding-bottom: 40px; /* footer height */
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+.wf-home-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}

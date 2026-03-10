@@ -1,0 +1,16 @@
+.wf-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(13, 13, 26, 0.9);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(97, 218, 251, 0.08);
+  color: #666;
+  font-size: 0.75rem;
+  z-index: 100;
+}
