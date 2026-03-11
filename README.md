@@ -38,6 +38,11 @@ windfire-ui-react/
 │   │   └── ArchitectureDiagram.js  # SVG system architecture visualization
 │   ├── App.js                  # Root component: routes between login and dashboard
 │   └── index.js                # React entry point
+├── ssl/
+│   ├── generate-ssl.sh         # Script to generate self-signed key + certificate
+│   ├── key.pem                 # TLS private key (not committed — see .gitignore)
+│   └── cert.pem                # TLS certificate (not committed — see .gitignore)
+├── server.js                   # Production HTTPS server (Express + Node https)
 ├── .env_PLACEHOLDER            # Template for required environment variables
 └── .env                        # Local environment config (not committed)
 ```
@@ -127,7 +132,88 @@ Launches the test runner in interactive watch mode.
 #### `npm run build`
 Builds the app for production to the `build` folder.
 
+#### `npm run serve`
+Starts the production HTTPS server (`server.js`) to serve the `build` folder.
+Requires `SSL_KEY_FILE` and `SSL_CRT_FILE` to be set (or defaults in `ssl/`).
+
 #### `npm run eject`
 **Note: this is a one-way operation. Once you eject, you can't go back.**
 
 Exposes the underlying Webpack, Babel and ESLint configuration for full control.
+
+---
+
+## HTTPS / SSL Setup
+
+HTTPS is enforced using SSL certificates. The app supports two modes:
+
+| Mode | Command | Server | Use case |
+|---|---|---|---|
+| Production | `./run.sh` | `server.js` (Node `https` + Express) | Real deployments |
+| Development | `./run.sh --dev` | CRA webpack-dev-server | Local dev with HTTPS |
+
+### SSL Certificate Generation
+
+SSL key and certificate files are stored in the `ssl/` directory (excluded from version control). A helper script is provided to generate a self-signed pair for local development:
+
+```bash
+bash ssl/generate-ssl.sh
+```
+
+This creates `ssl/key.pem` and `ssl/cert.pem` (valid 365 days, CN=localhost).
+
+> **Self-signed certificates trigger browser security warnings.** For production, replace these files with certificates issued by a trusted Certificate Authority (e.g. [Let's Encrypt](https://letsencrypt.org/)).
+
+`run.sh` calls `ssl/generate-ssl.sh` automatically if the certificate files are not found before the production build starts.
+
+### Production Mode (default)
+
+`./run.sh` builds the React app and starts the HTTPS server:
+
+- HTTPS on port `443` (override with `PORT=<n>` in `.env`)
+- HTTP redirect on port `80` (override with `HTTP_PORT=<n>`, disable with `HTTP_REDIRECT=false`)
+
+```bash
+./run.sh
+```
+
+> **Port 443 requires elevated privileges on Linux.** For non-root deployments, set `PORT=8443` (and optionally `HTTP_PORT=8080`) and place a reverse proxy (nginx, load balancer) in front.
+
+### Development Mode
+
+`./run.sh --dev` starts the CRA webpack-dev-server. To enable HTTPS in dev mode, set the following in your `.env`:
+
+```
+HTTPS=true
+SSL_KEY_FILE=ssl/key.pem
+SSL_CRT_FILE=ssl/cert.pem
+```
+
+Then run:
+
+```bash
+./run.sh --dev
+```
+
+The dev server will be available at `https://localhost:3000`.
+
+### SSL Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `SSL_KEY_FILE` | `ssl/key.pem` | Path to TLS private key file |
+| `SSL_CRT_FILE` | `ssl/cert.pem` | Path to TLS certificate file |
+| `PORT` | `443` | HTTPS server port |
+| `HTTP_PORT` | `80` | HTTP redirect server port |
+| `HTTP_REDIRECT` | `true` | Set to `false` to disable HTTP→HTTPS redirect |
+
+### Keycloak Redirect URI Update for HTTPS
+
+When switching from HTTP to HTTPS, update the Keycloak client's **Valid redirect URIs** and **Web origins** to use `https://`:
+
+| Setting | HTTP value | HTTPS value |
+|---|---|---|
+| Valid redirect URIs | `http://localhost:3000/*` | `https://localhost:3000/*` |
+| Web origins | `http://localhost:3000` | `https://localhost:3000` |
+
+> The app will fail to authenticate if the redirect URIs in Keycloak still point to `http://` after switching to HTTPS.
