@@ -2,10 +2,23 @@
 
 set -e
 
+show_help() {
+  echo "Usage: ./run.sh [OPTIONS]"
+  echo ""
+  echo "Options:"
+  echo "  --dev       Start the development server (npm start)"
+  echo "              HTTPS is enabled if HTTPS=true, SSL_CRT_FILE, and SSL_KEY_FILE are set in .env"
+  echo "  -h, --help  Show this help message and exit"
+  echo ""
+  echo "Default (no options): build the app and start the production HTTPS server."
+  echo "  SSL certificates are auto-generated if ssl/key.pem or ssl/cert.pem are missing."
+}
+
 DEV_MODE=false
 for arg in "$@"; do
   case $arg in
     --dev) DEV_MODE=true ;;
+    -h|--help) show_help; exit 0 ;;
   esac
 done
 
