@@ -1,19 +1,23 @@
 'use strict';
 
+require('dotenv').config(); // load .env into process.env (e.g. KEYCLOAK_PROXY_TARGET)
+
 const https   = require('https');
 const http    = require('http');
 const fs      = require('fs');
 const path    = require('path');
 const express = require('express');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 
 // ---------------------------------------------------------------------------
 // Configuration from environment
 // ---------------------------------------------------------------------------
-const SSL_KEY_FILE  = process.env.SSL_KEY_FILE  || path.join(__dirname, 'ssl', 'key.pem');
-const SSL_CRT_FILE  = process.env.SSL_CRT_FILE  || path.join(__dirname, 'ssl', 'cert.pem');
-const PORT          = parseInt(process.env.PORT      || '443', 10);
-const HTTP_PORT     = parseInt(process.env.HTTP_PORT || '80',  10);
-const HTTP_REDIRECT = process.env.HTTP_REDIRECT !== 'false';
+const SSL_KEY_FILE       = process.env.SSL_KEY_FILE       || path.join(__dirname, 'ssl', 'key.pem');
+const SSL_CRT_FILE       = process.env.SSL_CRT_FILE       || path.join(__dirname, 'ssl', 'cert.pem');
+const PORT               = parseInt(process.env.PORT      || '443', 10);
+const HTTP_PORT          = parseInt(process.env.HTTP_PORT || '80',  10);
+const HTTP_REDIRECT      = process.env.HTTP_REDIRECT !== 'false';
+const KEYCLOAK_PROXY_TARGET = process.env.KEYCLOAK_PROXY_TARGET || null;
 
 // ---------------------------------------------------------------------------
 // Validate and load SSL certificates
@@ -39,6 +43,21 @@ try {
 // ---------------------------------------------------------------------------
 const app      = express();
 const buildDir = path.join(__dirname, 'build');
+
+// ---------------------------------------------------------------------------
+// Solution 1: Proxy /keycloak/* → Keycloak server (HTTP on backend, HTTPS on frontend)
+// Activated when KEYCLOAK_PROXY_TARGET is set in the environment.
+// Prevents mixed-content errors when the React app is served over HTTPS but
+// Keycloak is only available over HTTP.
+// ---------------------------------------------------------------------------
+if (KEYCLOAK_PROXY_TARGET) {
+  app.use('/keycloak', createProxyMiddleware({
+    target: KEYCLOAK_PROXY_TARGET,
+    changeOrigin: true,
+    pathRewrite: { '^/keycloak': '' },
+  }));
+  console.log(`Keycloak proxy enabled: /keycloak → ${KEYCLOAK_PROXY_TARGET}`);
+}
 
 // Serve static assets (JS bundles, CSS, images, etc.)
 app.use(express.static(buildDir));
