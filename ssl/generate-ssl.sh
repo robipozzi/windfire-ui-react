@@ -17,23 +17,26 @@
 
 set -e
 
+# shellcheck source=../commons.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../commons.sh"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KEY_FILE="$SCRIPT_DIR/key.pem"
 CERT_FILE="$SCRIPT_DIR/cert.pem"
 
-echo "==> Generating SSL key and certificate in: $SCRIPT_DIR"
+echo -e "${CYAN}==> Generating SSL key and certificate in: $SCRIPT_DIR${NC}"
 
 if [ -f "$KEY_FILE" ] && [ -f "$CERT_FILE" ]; then
-  echo "==> SSL files already exist:"
-  echo "    key.pem  : $KEY_FILE"
-  echo "    cert.pem : $CERT_FILE"
-  echo "    Delete them and re-run this script to regenerate."
+  echo -e "${GREEN}==> SSL files already exist:${NC}"
+  echo -e "${WHITE}    key.pem  : $KEY_FILE${NC}"
+  echo -e "${WHITE}    cert.pem : $CERT_FILE${NC}"
+  echo -e "${WHITE}    Delete them and re-run this script to regenerate.${NC}"
   exit 0
 fi
 
 if ! command -v openssl &> /dev/null; then
-  echo "ERROR: openssl is not installed or not in PATH."
-  echo "       Install openssl and re-run this script."
+  echo -e "${RED}ERROR: openssl is not installed or not in PATH.${NC}"
+  echo -e "${RED}       Install openssl and re-run this script.${NC}"
   exit 1
 fi
 
@@ -47,9 +50,9 @@ openssl req -x509 \
 
 chmod 600 "$KEY_FILE"
 
-echo "==> SSL files generated successfully:"
-echo "    key.pem  : $KEY_FILE"
-echo "    cert.pem : $CERT_FILE"
+echo -e "${GREEN}==> SSL files generated successfully:${NC}"
+echo -e "${WHITE}    key.pem  : $KEY_FILE${NC}"
+echo -e "${WHITE}    cert.pem : $CERT_FILE${NC}"
 echo ""
-echo "    These are self-signed certificates for development use only."
-echo "    Do NOT use them in production."
+echo -e "${WHITE}    These are self-signed certificates for development use only.${NC}"
+echo -e "${WHITE}    Do NOT use them in production.${NC}"

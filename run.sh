@@ -2,16 +2,19 @@
 
 set -e
 
+# shellcheck source=commons.sh
+source "$(dirname "${BASH_SOURCE[0]}")/commons.sh"
+
 show_help() {
-  echo "Usage: ./run.sh [OPTIONS]"
+  echo -e "${WHITE}Usage: ./run.sh [OPTIONS]${NC}"
   echo ""
-  echo "Options:"
-  echo "  --dev       Start the development server (npm start)"
-  echo "              HTTPS is enabled if HTTPS=true, SSL_CRT_FILE, and SSL_KEY_FILE are set in .env"
-  echo "  -h, --help  Show this help message and exit"
+  echo -e "${WHITE}Options:${NC}"
+  echo -e "${WHITE}  --dev       Start the development server (npm start)${NC}"
+  echo -e "${WHITE}              HTTPS is enabled if HTTPS=true, SSL_CRT_FILE, and SSL_KEY_FILE are set in .env${NC}"
+  echo -e "${WHITE}  -h, --help  Show this help message and exit${NC}"
   echo ""
-  echo "Default (no options): build the app and start the production HTTPS server."
-  echo "  SSL certificates are auto-generated if ssl/key.pem or ssl/cert.pem are missing."
+  echo -e "${WHITE}Default (no options): build the app and start the production HTTPS server.${NC}"
+  echo -e "${WHITE}  SSL certificates are auto-generated if ssl/key.pem or ssl/cert.pem are missing.${NC}"
 }
 
 DEV_MODE=false
@@ -22,32 +25,32 @@ for arg in "$@"; do
   esac
 done
 
-echo "==> Checking dependencies..."
+echo -e "${CYAN}==> Checking dependencies...${NC}"
 if [ ! -d "node_modules" ]; then
-  echo "==> node_modules not found, running npm install..."
+  echo -e "${YELLOW}==> node_modules not found, running npm install...${NC}"
   npm install
 else
-  echo "==> node_modules found, skipping install."
+  echo -e "${GREEN}==> node_modules found, skipping install.${NC}"
 fi
 
 if [ "$DEV_MODE" = "true" ]; then
-  echo "==> Starting development server..."
-  echo "    HTTPS will be enabled if HTTPS=true, SSL_CRT_FILE, and SSL_KEY_FILE are set in .env"
+  echo -e "${YELLOW}==> Starting development server...${NC}"
+  echo -e "${WHITE}    HTTPS will be enabled if HTTPS=true, SSL_CRT_FILE, and SSL_KEY_FILE are set in .env${NC}"
   npm start
 else
   # Ensure SSL certificates exist before building
   if [ ! -f "ssl/key.pem" ] || [ ! -f "ssl/cert.pem" ]; then
-    echo "==> SSL certificates not found, generating self-signed certificates..."
+    echo -e "${YELLOW}==> SSL certificates not found, generating self-signed certificates...${NC}"
     bash ssl/generate-ssl.sh
   else
-    echo "==> SSL certificates found."
+    echo -e "${GREEN}==> SSL certificates found.${NC}"
   fi
 
-  echo "==> Building the application..."
+  echo -e "${YELLOW}==> Building the application...${NC}"
   npm run build
 
-  echo "==> Starting production HTTPS server..."
-  echo "    SSL_KEY_FILE=${SSL_KEY_FILE:-ssl/key.pem}"
-  echo "    SSL_CRT_FILE=${SSL_CRT_FILE:-ssl/cert.pem}"
+  echo -e "${YELLOW}==> Starting production HTTPS server...${NC}"
+  echo -e "${WHITE}    SSL_KEY_FILE=${SSL_KEY_FILE:-ssl/key.pem}${NC}"
+  echo -e "${WHITE}    SSL_CRT_FILE=${SSL_CRT_FILE:-ssl/cert.pem}${NC}"
   npm run serve
 fi
