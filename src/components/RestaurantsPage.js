@@ -1,14 +1,22 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../auth/AuthContext';
 import './RestaurantsPage.css';
 
 export default function RestaurantsPage() {
+  const { tokens } = useAuth();
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     const url = process.env.REACT_APP_RESTAURANTS_URL;
-    fetch(url)
+    console.log('===> (RestaurantsPage) - url:', url);
+    console.log('===> (RestaurantsPage) - tokens:', tokens?.access_token);
+    fetch(url, {
+      headers: {
+        Authorization: `Bearer ${tokens?.access_token}`,
+      },
+    })
       .then((res) => {
         if (!res.ok) throw new Error(`Request failed: ${res.status} ${res.statusText}`);
         return res.json();
@@ -21,7 +29,7 @@ export default function RestaurantsPage() {
         setError(err.message);
         setLoading(false);
       });
-  }, []);
+  }, [tokens?.access_token]);
 
   if (loading) {
     return (
