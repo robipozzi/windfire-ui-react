@@ -7,7 +7,7 @@ export default function RestaurantsPage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const url = process.env.REACT_APP_RESTAURANTS_URL || 'http://localhost:8082/restaurants';
+    const url = process.env.REACT_APP_RESTAURANTS_URL;
     fetch(url)
       .then((res) => {
         if (!res.ok) throw new Error(`Request failed: ${res.status} ${res.statusText}`);
