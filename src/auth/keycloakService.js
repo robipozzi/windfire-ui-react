@@ -6,6 +6,13 @@ const tokenUrl = () =>
   `${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token`;
 
 export async function login(username, password) {
+  // START - Debug logging - remove in production
+  console.log('XXXXXX - Attempting login with:', { username, password: '******' });
+  console.log('XXXXXX - Keycloak URL:', KEYCLOAK_URL);
+  console.log('XXXXXX - Realm:', REALM);
+  console.log('XXXXXX - Client ID:', CLIENT_ID);
+  console.log('XXXXXX - tokenUrl:', tokenUrl);
+  // END - Debug logging - remove in production
   const res = await fetch(tokenUrl(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
