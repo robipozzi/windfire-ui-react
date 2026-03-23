@@ -28,7 +28,8 @@ export default function RestaurantsPage() {
       },
     })
       .then((res) => {
-        if (!res.ok) throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+        if (!res.ok) 
+          throw new Error(`Request failed: ${res.status} ${res.statusText}`);
         return res.json();
       })
       .then((data) => {
@@ -61,7 +62,8 @@ export default function RestaurantsPage() {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${tokens?.access_token}` },
       });
-      if (!res.ok) throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+      if (!res.ok) 
+        throw new Error(`Request failed: ${res.status} ${res.statusText}`);
       setRestaurants((prev) => prev.filter((r) => r.id !== restaurant.id));
     } catch (err) {
       setDeleteError(err.message);
@@ -95,7 +97,8 @@ export default function RestaurantsPage() {
         },
         body: JSON.stringify(newRestaurant),
       });
-      if (!res.ok) throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+      if (!res.ok) 
+        throw new Error(`Request failed: ${res.status} ${res.statusText}`);
       setRestaurants((prev) => [...prev, newRestaurant]);
       handleCancel();
     } catch (err) {
