@@ -4,8 +4,7 @@ import WindfireLogo from './WindfireLogo';
 
 const NAV_ITEMS = [
   { key: 'restaurants', label: 'Restaurants' },
-  { key: 'calendar',    label: 'Calendar' },
-  { key: 'maps',        label: 'Maps' },
+  { key: 'calendar',    label: 'Calendar' }
 ];
 
 export default function Header({ currentPage, onNavigate, user, onLogout }) {

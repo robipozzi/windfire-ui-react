@@ -5,11 +5,140 @@
   overflow-y: auto;
 }
 
+.wf-restaurants-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
 .wf-restaurants-title {
   font-size: 2rem;
   font-weight: 700;
   color: #61dafb;
-  margin: 0 0 1.5rem 0;
+  margin: 0;
+}
+
+.wf-btn-add {
+  background: #61dafb;
+  color: #0d0d1a;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.wf-btn-add:hover {
+  background: #21b3e8;
+}
+
+/* Add Restaurant Form */
+.wf-restaurant-form {
+  background: #1a1a2e;
+  border: 1px solid #2a2a4a;
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.wf-form-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #61dafb;
+  margin: 0 0 1.2rem 0;
+}
+
+.wf-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.9rem 1.5rem;
+}
+
+.wf-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.wf-form-field label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #aaaaaa;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.wf-form-field input {
+  background: #0d0d1a;
+  border: 1px solid #2a2a4a;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 0.9rem;
+  padding: 0.5rem 0.75rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.wf-form-field input:focus {
+  border-color: #61dafb;
+}
+
+.wf-form-error {
+  font-size: 0.85rem;
+  color: #ff6b6b;
+  margin: 0.9rem 0 0 0;
+}
+
+.wf-form-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.2rem;
+}
+
+.wf-btn-submit {
+  background: #61dafb;
+  color: #0d0d1a;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.wf-btn-submit:hover:not(:disabled) {
+  background: #21b3e8;
+}
+
+.wf-btn-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.wf-btn-cancel {
+  background: transparent;
+  color: #aaaaaa;
+  border: 1px solid #2a2a4a;
+  border-radius: 6px;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.wf-btn-cancel:hover:not(:disabled) {
+  border-color: #61dafb;
+  color: #e0e0e0;
+}
+
+.wf-btn-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .wf-restaurants-table-wrapper {
