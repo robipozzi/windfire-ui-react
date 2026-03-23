@@ -18,8 +18,10 @@ export default function RestaurantsPage() {
 
   useEffect(() => {
     const url = process.env.REACT_APP_RESTAURANTS_URL;
-    console.log('===> (RestaurantsPage) - url:', url);
-    console.log('===> (RestaurantsPage) - tokens:', tokens?.access_token);
+    // ##### START - Debug logging - remove in production
+    /*console.log('===> (RestaurantsPage) - url:', url);
+    console.log('===> (RestaurantsPage) - tokens:', tokens?.access_token);*/
+    // ##### END - Debug logging - remove in production
     fetch(url, {
       headers: {
         Authorization: `Bearer ${tokens?.access_token}`,
