@@ -13,6 +13,8 @@ export default function RestaurantsPage() {
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [deleteError, setDeleteError] = useState(null);
 
   useEffect(() => {
     const url = process.env.REACT_APP_RESTAURANTS_URL;
@@ -46,6 +48,24 @@ export default function RestaurantsPage() {
     setShowForm(false);
     setFormData(EMPTY_FORM);
     setFormError(null);
+  }
+
+  async function handleDelete(restaurant) {
+    setDeletingId(restaurant.id);
+    setDeleteError(null);
+    const url = `${process.env.REACT_APP_RESTAURANTS_URL}/${restaurant.id}`;
+    try {
+      const res = await fetch(url, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${tokens?.access_token}` },
+      });
+      if (!res.ok) throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+      setRestaurants((prev) => prev.filter((r) => r.id !== restaurant.id));
+    } catch (err) {
+      setDeleteError(err.message);
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   async function handleSubmit(e) {
@@ -187,6 +207,10 @@ export default function RestaurantsPage() {
         </form>
       )}
 
+      {deleteError && (
+        <p className="wf-delete-error">Failed to delete restaurant: {deleteError}</p>
+      )}
+
       <div className="wf-restaurants-table-wrapper">
         <table className="wf-restaurants-table">
           <thead>
@@ -194,14 +218,35 @@ export default function RestaurantsPage() {
               <th>Name</th>
               <th>Address</th>
               <th>Cuisine</th>
+              <th className="wf-col-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
             {restaurants.map((r, index) => (
-              <tr key={r.name ?? index}>
+              <tr key={r.id ?? index}>
                 <td>{r.name}</td>
                 <td>{`${r.address.street} - ${r.address.zipCode}, ${r.address.city}`}</td>
                 <td>{r.cuisine}</td>
+                <td className="wf-col-actions">
+                  <button
+                    className="wf-btn-delete"
+                    title="Delete restaurant"
+                    disabled={deletingId === r.id}
+                    onClick={() => handleDelete(r)}
+                  >
+                    {deletingId === r.id ? (
+                      <span className="wf-delete-spinner" />
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                      </svg>
+                    )}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
