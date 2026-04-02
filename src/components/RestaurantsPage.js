@@ -19,6 +19,7 @@ export default function RestaurantsPage() {
   const [formError, setFormError] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   useEffect(() => {
     const url = process.env.REACT_APP_RESTAURANTS_URL;
@@ -58,6 +59,7 @@ export default function RestaurantsPage() {
   }
 
   async function handleDelete(restaurant) {
+    setConfirmDeleteId(null);
     setDeletingId(restaurant.id);
     setDeleteError(null);
     const url = `${process.env.REACT_APP_RESTAURANTS_URL}/${restaurant.id}`;
@@ -321,15 +323,30 @@ export default function RestaurantsPage() {
                 <td>{`${r.address.street} - ${r.address.zipCode}, ${r.address.city}`}</td>
                 <td>{r.cuisine}</td>
                 <td className="wf-col-actions">
-                  <button
-                    className="wf-btn-delete"
-                    title="Delete restaurant"
-                    disabled={deletingId === r.id}
-                    onClick={() => handleDelete(r)}
-                  >
-                    {deletingId === r.id ? (
-                      <span className="wf-delete-spinner" />
-                    ) : (
+                  {confirmDeleteId === r.id ? (
+                    <span className="wf-delete-confirm">
+                      <button
+                        className="wf-btn-confirm-yes"
+                        onClick={() => handleDelete(r)}
+                        disabled={deletingId === r.id}
+                      >
+                        {deletingId === r.id ? <span className="wf-delete-spinner" /> : 'Yes'}
+                      </button>
+                      <button
+                        className="wf-btn-confirm-no"
+                        onClick={() => setConfirmDeleteId(null)}
+                        disabled={deletingId === r.id}
+                      >
+                        No
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      className="wf-btn-delete"
+                      title="Delete restaurant"
+                      disabled={deletingId === r.id}
+                      onClick={() => setConfirmDeleteId(r.id)}
+                    >
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="3 6 5 6 21 6" />
                         <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
@@ -337,8 +354,8 @@ export default function RestaurantsPage() {
                         <path d="M14 11v6" />
                         <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
                       </svg>
-                    )}
-                  </button>
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
