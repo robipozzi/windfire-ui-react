@@ -2,7 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import './RestaurantsPage.css';
 
-const EMPTY_FORM = { name: '', street: '', zipCode: '', city: '', cuisine: '' };
+const EMPTY_FORM = {
+  name: '', street: '', zipCode: '', city: '',
+  province: '', region: '', country: '', cuisine: '',
+  phone: '', mobile: '', email: '', website: '',
+};
 
 export default function RestaurantsPage() {
   const { tokens } = useAuth();
@@ -83,8 +87,15 @@ export default function RestaurantsPage() {
         street: formData.street,
         zipCode: formData.zipCode,
         city: formData.city,
+        province: formData.province,
+        region: formData.region,
+        country: formData.country,
       },
       cuisine: formData.cuisine,
+      phone: formData.phone,
+      mobile: formData.mobile,
+      email: formData.email,
+      website: formData.website,
     };
 
     const url = process.env.REACT_APP_RESTAURANTS_URL;
@@ -197,6 +208,83 @@ export default function RestaurantsPage() {
                 value={formData.city}
                 onChange={handleFormChange}
                 placeholder="City"
+              />
+            </div>
+            <div className="wf-form-field">
+              <label htmlFor="province">Province</label>
+              <input
+                id="province"
+                name="province"
+                type="text"
+                value={formData.province}
+                onChange={handleFormChange}
+                placeholder="Province"
+              />
+            </div>
+            <div className="wf-form-field">
+              <label htmlFor="region">Region</label>
+              <input
+                id="region"
+                name="region"
+                type="text"
+                value={formData.region}
+                onChange={handleFormChange}
+                placeholder="Region"
+              />
+            </div>
+            <div className="wf-form-field">
+              <label htmlFor="country">Country</label>
+              <input
+                id="country"
+                name="country"
+                type="text"
+                value={formData.country}
+                onChange={handleFormChange}
+                placeholder="Country"
+              />
+            </div>
+            <div className="wf-form-field">
+              <label htmlFor="phone">Phone Number</label>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                value={formData.phone}
+                onChange={handleFormChange}
+                placeholder="Phone number"
+              />
+            </div>
+            <div className="wf-form-field">
+              <label htmlFor="mobile">Mobile Number</label>
+              <input
+                id="mobile"
+                name="mobile"
+                type="tel"
+                value={formData.mobile}
+                onChange={handleFormChange}
+                placeholder="Mobile number"
+              />
+            </div>
+            <div className="wf-form-field">
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleFormChange}
+                placeholder="Email address"
+              />
+            </div>
+            <div className="wf-form-field">
+              <label htmlFor="website">Website</label>
+              <input
+                id="website"
+                name="website"
+                type="url"
+                value={formData.website}
+                onChange={handleFormChange}
+                placeholder="https://..."
               />
             </div>
           </div>

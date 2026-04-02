@@ -9,12 +9,17 @@ export default function LoginForm() {
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
+  // ##### START - Debug logging - remove in production
+  console.log('===> (LoginForm) - Rendering LoginForm with state:', { username, password: '******', showPwd, loading, error });
+  // ##### END - Debug logging - remove in production
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
+      // ##### START - Debug logging - remove in production
+      console.log('===> (LoginForm) - Submitting login form with:', { username, password: '******' });
+      // ##### END - Debug logging - remove in production
       await login(username, password);
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');

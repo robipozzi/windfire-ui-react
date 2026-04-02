@@ -8,12 +8,14 @@ import RestaurantsPage from './RestaurantsPage';
 
 const PAGE_TITLES = {
   calendar: 'Calendar',
-  maps: 'Maps',
+  restaurants: 'Restaurants',
 };
 
 export default function HomePage({ user, onLogout }) {
   const [currentPage, setCurrentPage] = useState('home');
-
+  // ##### START - Debug logging - remove in production
+  console.log('===> (HomePage) - Rendering HomePage with state:', { currentPage });
+  // ##### END - Debug logging - remove in production
   function renderBody() {
     if (currentPage === 'home') {
       return (

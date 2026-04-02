@@ -14,7 +14,9 @@ function loadStored() {
 
 export function AuthProvider({ children }) {
   const [state, setState] = useState(loadStored);
-
+  // ##### START - Debug logging - remove in production
+  console.log('===> (AuthContext.js) - Initial auth state:', { state });
+  // ##### END - Debug logging - remove in production
   const login = useCallback(async (username, password) => {
     const tokens = await kcLogin(username, password);
     const user = decodeToken(tokens.access_token);
