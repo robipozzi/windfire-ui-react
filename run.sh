@@ -6,15 +6,15 @@ set -e
 source "$(dirname "${BASH_SOURCE[0]}")/commons.sh"
 
 show_help() {
-  echo -e "${WHITE}Usage: ./run.sh [OPTIONS]${NC}"
+  echo -e "${BOLD}Usage: ./run.sh [OPTIONS]${NC}"
   echo ""
-  echo -e "${WHITE}Options:${NC}"
-  echo -e "${WHITE}  --dev       Start the development server (npm start)${NC}"
-  echo -e "${WHITE}              HTTPS is enabled if HTTPS=true, SSL_CRT_FILE, and SSL_KEY_FILE are set in .env${NC}"
-  echo -e "${WHITE}  -h, --help  Show this help message and exit${NC}"
+  echo -e "${BOLD}Options:${NC}"
+  echo -e "${BOLD}  --dev       Start the development server (npm start)${NC}"
+  echo -e "${BOLD}              HTTPS is enabled if HTTPS=true, SSL_CRT_FILE, and SSL_KEY_FILE are set in .env${NC}"
+  echo -e "${BOLD}  -h, --help  Show this help message and exit${NC}"
   echo ""
-  echo -e "${WHITE}Default (no options): build the app and start the production HTTPS server.${NC}"
-  echo -e "${WHITE}  SSL certificates are auto-generated if ssl/key.pem or ssl/cert.pem are missing.${NC}"
+  echo -e "${BOLD}Default (no options): build the app and start the production HTTPS server.${NC}"
+  echo -e "${BOLD}  SSL certificates are auto-generated if ssl/key.pem or ssl/cert.pem are missing.${NC}"
 }
 
 DEV_MODE=false
