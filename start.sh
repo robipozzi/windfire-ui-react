@@ -6,7 +6,7 @@ set -e
 source "$(dirname "${BASH_SOURCE[0]}")/commons.sh"
 
 show_help() {
-  echo -e "${BOLD}Usage: ./run.sh [OPTIONS]${NC}"
+  echo -e "${BOLD}Usage: ./start.sh [OPTIONS]${NC}"
   echo ""
   echo -e "${BOLD}Options:${NC}"
   echo -e "${BOLD}  --dev       Start the development server (npm start)${NC}"

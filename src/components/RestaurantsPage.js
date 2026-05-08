@@ -312,7 +312,12 @@ export default function RestaurantsPage() {
             <tr>
               <th>Name</th>
               <th>Address</th>
+              <th>Region</th>
+              <th>Province</th>
               <th>Cuisine</th>
+              <th>Website</th>
+              <th>Email</th>
+              <th>Phone</th>
               <th className="wf-col-actions">Actions</th>
             </tr>
           </thead>
@@ -321,7 +326,12 @@ export default function RestaurantsPage() {
               <tr key={r.id ?? index}>
                 <td>{r.name}</td>
                 <td>{`${r.address.street} - ${r.address.zipCode}, ${r.address.city}`}</td>
+                <td>{r.address.region}</td>
+                <td>{r.address.province}</td>
                 <td>{r.cuisine}</td>
+                <td>{r.website ? <a href={r.website} target="_blank" rel="noopener noreferrer">{r.website}</a> : ''}</td>
+                <td>{r.email ? <a href={`mailto:${r.email}`}>{r.email}</a> : ''}</td>
+                <td>{r.phone}</td>
                 <td className="wf-col-actions">
                   {confirmDeleteId === r.id ? (
                     <span className="wf-delete-confirm">
