@@ -296,3 +296,123 @@
   color: #ff6b6b;
   margin: 0;
 }
+
+/* Clickable restaurant name */
+.wf-name-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #61dafb;
+  font-size: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 0.2s;
+}
+
+.wf-name-link:hover {
+  text-decoration-color: #61dafb;
+}
+
+/* Modal */
+.wf-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.wf-modal {
+  background: #1a1a2e;
+  border: 1px solid #2a2a4a;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 540px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+}
+
+.wf-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #2a2a4a;
+  position: sticky;
+  top: 0;
+  background: #1a1a2e;
+  z-index: 1;
+}
+
+.wf-modal-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #61dafb;
+  margin: 0;
+}
+
+.wf-modal-close {
+  background: none;
+  border: none;
+  color: #aaaaaa;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.25rem 0.4rem;
+  border-radius: 4px;
+  transition: color 0.2s, background 0.2s;
+  line-height: 1;
+}
+
+.wf-modal-close:hover {
+  color: #e0e0e0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.wf-modal-body {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.wf-modal-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #aaaaaa;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin: 0 0 0.75rem 0;
+}
+
+.wf-modal-grid {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  gap: 0.5rem 1rem;
+  align-items: baseline;
+}
+
+.wf-modal-label {
+  font-size: 0.8rem;
+  color: #888888;
+  font-weight: 500;
+}
+
+.wf-modal-value {
+  font-size: 0.9rem;
+  color: #e0e0e0;
+  word-break: break-word;
+}
+
+.wf-modal-value a {
+  color: #56c8f5;
+  text-decoration: none;
+}
+
+.wf-modal-value a:hover {
+  text-decoration: underline;
+}

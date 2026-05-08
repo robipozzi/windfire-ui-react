@@ -20,6 +20,7 @@ export default function RestaurantsPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [selectedRestaurant, setSelectedRestaurant] = useState(null);
 
   useEffect(() => {
     const url = process.env.REACT_APP_RESTAURANTS_URL;
@@ -316,22 +317,22 @@ export default function RestaurantsPage() {
               <th>Province</th>
               <th>Cuisine</th>
               <th>Website</th>
-              <th>Email</th>
-              <th>Phone</th>
               <th className="wf-col-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
             {restaurants.map((r, index) => (
               <tr key={r.id ?? index}>
-                <td>{r.name}</td>
+                <td>
+                  <button className="wf-name-link" onClick={() => setSelectedRestaurant(r)}>
+                    {r.name}
+                  </button>
+                </td>
                 <td>{`${r.address.street} - ${r.address.zipCode}, ${r.address.city}`}</td>
                 <td>{r.address.region}</td>
                 <td>{r.address.province}</td>
                 <td>{r.cuisine}</td>
                 <td>{r.website ? <a href={r.website} target="_blank" rel="noopener noreferrer">{r.website}</a> : ''}</td>
-                <td>{r.email ? <a href={`mailto:${r.email}`}>{r.email}</a> : ''}</td>
-                <td>{r.phone}</td>
                 <td className="wf-col-actions">
                   {confirmDeleteId === r.id ? (
                     <span className="wf-delete-confirm">
@@ -372,6 +373,59 @@ export default function RestaurantsPage() {
           </tbody>
         </table>
       </div>
+
+      {selectedRestaurant && (
+        <div className="wf-modal-overlay" onClick={() => setSelectedRestaurant(null)}>
+          <div className="wf-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="wf-modal-header">
+              <h3 className="wf-modal-title">{selectedRestaurant.name}</h3>
+              <button className="wf-modal-close" onClick={() => setSelectedRestaurant(null)}>✕</button>
+            </div>
+            <div className="wf-modal-body">
+              <div className="wf-modal-section">
+                <h4 className="wf-modal-section-title">Address</h4>
+                <div className="wf-modal-grid">
+                  <span className="wf-modal-label">Street</span>
+                  <span className="wf-modal-value">{selectedRestaurant.address?.street || '—'}</span>
+                  <span className="wf-modal-label">ZIP Code</span>
+                  <span className="wf-modal-value">{selectedRestaurant.address?.zipCode || '—'}</span>
+                  <span className="wf-modal-label">City</span>
+                  <span className="wf-modal-value">{selectedRestaurant.address?.city || '—'}</span>
+                  <span className="wf-modal-label">Province</span>
+                  <span className="wf-modal-value">{selectedRestaurant.address?.province || '—'}</span>
+                  <span className="wf-modal-label">Region</span>
+                  <span className="wf-modal-value">{selectedRestaurant.address?.region || '—'}</span>
+                  <span className="wf-modal-label">Country</span>
+                  <span className="wf-modal-value">{selectedRestaurant.address?.country || '—'}</span>
+                </div>
+              </div>
+              <div className="wf-modal-section">
+                <h4 className="wf-modal-section-title">Details</h4>
+                <div className="wf-modal-grid">
+                  <span className="wf-modal-label">Cuisine</span>
+                  <span className="wf-modal-value">{selectedRestaurant.cuisine || '—'}</span>
+                  <span className="wf-modal-label">Phone</span>
+                  <span className="wf-modal-value">{selectedRestaurant.phone || '—'}</span>
+                  <span className="wf-modal-label">Mobile</span>
+                  <span className="wf-modal-value">{selectedRestaurant.mobile || '—'}</span>
+                  <span className="wf-modal-label">Email</span>
+                  <span className="wf-modal-value">
+                    {selectedRestaurant.email
+                      ? <a href={`mailto:${selectedRestaurant.email}`}>{selectedRestaurant.email}</a>
+                      : '—'}
+                  </span>
+                  <span className="wf-modal-label">Website</span>
+                  <span className="wf-modal-value">
+                    {selectedRestaurant.website
+                      ? <a href={selectedRestaurant.website} target="_blank" rel="noopener noreferrer">{selectedRestaurant.website}</a>
+                      : '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
