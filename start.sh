@@ -14,7 +14,7 @@ show_help() {
   echo -e "${BOLD}  -h, --help  Show this help message and exit${NC}"
   echo ""
   echo -e "${BOLD}Default (no options): build the app and start the production HTTPS server.${NC}"
-  echo -e "${BOLD}  SSL certificates are auto-generated if ssl/key.pem or ssl/cert.pem are missing.${NC}"
+  echo -e "${BOLD}  SSL certificates are auto-generated if ssl/windfire-key.pem or ssl/windfire-cert.pem are missing.${NC}"
 }
 
 DEV_MODE=false
@@ -39,7 +39,7 @@ if [ "$DEV_MODE" = "true" ]; then
   npm start
 else
   # Ensure SSL certificates exist before building
-  if [ ! -f "ssl/key.pem" ] || [ ! -f "ssl/cert.pem" ]; then
+  if [ ! -f "ssl/windfire-key.pem" ] || [ ! -f "ssl/windfire-cert.pem" ]; then
     echo -e "${YELLOW}==> SSL certificates not found, generating self-signed certificates...${NC}"
     bash ssl/generate-ssl.sh
   else
@@ -50,7 +50,7 @@ else
   npm run build
 
   echo -e "${YELLOW}==> Starting production HTTPS server...${NC}"
-  echo -e "${WHITE}    SSL_KEY_FILE=${SSL_KEY_FILE:-ssl/key.pem}${NC}"
-  echo -e "${WHITE}    SSL_CRT_FILE=${SSL_CRT_FILE:-ssl/cert.pem}${NC}"
+  echo -e "${WHITE}    SSL_KEY_FILE=${SSL_KEY_FILE:-ssl/windfire-key.pem}${NC}"
+  echo -e "${WHITE}    SSL_CRT_FILE=${SSL_CRT_FILE:-ssl/windfire-cert.pem}${NC}"
   npm run serve
 fi
