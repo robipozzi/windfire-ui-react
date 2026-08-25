@@ -81,8 +81,8 @@ Inside the `windfire` realm, create a client with the following settings:
 | Client authentication | Off (public client — no client secret) |
 | Standard flow | Optional (not used by this app) |
 | Direct access grants | **Enabled** (required — this app uses the password grant) |
-| Valid redirect URIs | `http://localhost:3000/*` |
-| Web origins | `http://localhost:3000` |
+| Valid redirect URIs | `https://localhost/*`, `https://localhost:3000/*`, `https://raspberry02:8443/*` |
+| Web origins | `https://localhost`, `https://localhost:3000`, `https://raspberry02:8443` |
 
 > **Why public + Direct Access Grants?** This is a browser SPA with no server-side component, so it cannot safely hold a client secret. The password grant posts credentials directly to Keycloak from the browser.
 
@@ -209,11 +209,36 @@ The dev server will be available at `https://localhost:3000`.
 
 ### Keycloak Redirect URI Update for HTTPS
 
-When switching from HTTP to HTTPS, update the Keycloak client's **Valid redirect URIs** and **Web origins** to use `https://`:
+When switching from HTTP to HTTPS, update the Keycloak client's **Valid redirect URIs** and **Web origins** to use `https://`, covering every real origin the app is served from:
 
 | Setting | HTTP value | HTTPS value |
 |---|---|---|
-| Valid redirect URIs | `http://localhost:3000/*` | `https://localhost:3000/*` |
-| Web origins | `http://localhost:3000` | `https://localhost:3000` |
+| Valid redirect URIs | `http://localhost:3000/*` | `https://localhost/*`, `https://localhost:3000/*`, `https://raspberry02:8443/*` |
+| Web origins | `http://localhost:3000` | `https://localhost`, `https://localhost:3000`, `https://raspberry02:8443` |
 
 > The app will fail to authenticate if the redirect URIs in Keycloak still point to `http://` after switching to HTTPS.
+>
+> **Web Origins matters even for the password grant.** This app doesn't use the redirect flow, but its `fetch()` call to Keycloak's token endpoint is still a cross-origin request from the browser. Keycloak only sends `Access-Control-Allow-Origin` for origins listed in the client's Web Origins — without it, the response fails with a CORS error in the browser console even though the same request via curl or Postman succeeds.
+
+### Trusting Keycloak's self-signed certificate
+
+Keycloak's HTTPS listener currently serves a **self-signed certificate**. Until the machine/browser running this app trusts the CA that issued it, `fetch()` calls to Keycloak will fail outright with `TypeError: Failed to fetch` — before CORS or credentials are even evaluated.
+
+1. Get the CA certificate (`ca_keycloak.pem`) — pull it from the Keycloak host, e.g.:
+   ```bash
+   scp raspberry01:~/dev/windfire-security/keycloak/security/tls/ca_keycloak.pem /tmp/ca_keycloak.pem
+   ```
+2. Trust it at the OS level so all browsers on the machine pick it up:
+   - **macOS**:
+     ```bash
+     sudo security add-trusted-cert -d -r trustRoot \
+       -k /Library/Keychains/System.keychain /tmp/ca_keycloak.pem
+     ```
+   - **Linux**:
+     ```bash
+     sudo cp ca_keycloak.pem /usr/local/share/ca-certificates/ca_keycloak.crt
+     sudo update-ca-certificates
+     ```
+     Firefox keeps its own certificate store (NSS) separate from the OS — import the CA cert manually via `about:preferences#privacy` → **View Certificates** → **Authorities** → **Import** if Firefox is used.
+
+Repeat this on every machine a browser is used against this app — the dev Mac, and `raspberry02` if a browser is ever pointed directly at it.
