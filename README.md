@@ -201,17 +201,34 @@ HTTPS is enforced using SSL certificates. The app supports two modes:
 
 ### SSL Certificate Generation
 
-SSL key and certificate files are stored in the `ssl/` directory (excluded from version control). A helper script is provided to generate a self-signed pair for local development:
+SSL key and certificate files are stored in the `ssl/` directory (excluded from version control). A helper script issues a leaf certificate signed by the **Windfire Root CA** (see the sibling `windfire-security` repo):
 
 ```bash
 bash ssl/generate-ssl.sh
 ```
 
-This creates `ssl/windfire-key.pem` (RSA 4096-bit private key) and `ssl/windfire-cert.pem` (valid 365 days, CN=localhost). The script is a no-op if both files already exist — delete them and re-run to regenerate.
+This creates `ssl/windfire-key.pem` (RSA 4096-bit private key) and `ssl/windfire-cert.pem` (valid 365 days, CN=localhost), signed by the Windfire Root CA. The script is a no-op if both files already exist — delete them and re-run to regenerate.
 
-> **Self-signed certificates trigger browser security warnings.** For production, replace these files with certificates issued by a trusted Certificate Authority (e.g. [Let's Encrypt](https://letsencrypt.org/)).
+**Prerequisite:** the Windfire Root CA must already exist. Run `windfire-security/ssl/createRootCA.sh` first if `~/opt/windfire/ssl/truststore/WindfireRootCA.crt` / `~/opt/windfire/ssl/keystore/WindfireRootCA.key` aren't present yet. Since the Root CA key is passphrase-protected, `generate-ssl.sh` will prompt for it while signing.
 
-`start.sh` calls `ssl/generate-ssl.sh` automatically (in production mode) if `ssl/windfire-key.pem` or `ssl/windfire-cert.pem` is not found before the build starts.
+Flags (all optional):
+
+| Flag | Description | Default |
+|---|---|---|
+| `-e, --env <localhost\|raspberry>` | Target environment (CN/SAN) | `localhost` |
+| `-c, --cert-name <file>` | Output certificate filename | `windfire-cert.pem` |
+| `-k, --key-name <file>` | Output private key filename | `windfire-key.pem` |
+| `-a, --ca-name <file>` | Windfire Root CA certificate filename (in the truststore) | `WindfireRootCA.crt` |
+| `-h, --help` | Display usage | — |
+
+```bash
+# Production cert for raspberry02
+bash ssl/generate-ssl.sh -e raspberry
+```
+
+> **The Windfire Root CA is not in the system/browser trust store by default.** It must be trusted separately by any client connecting to this server over HTTPS.
+
+`start.sh` calls `ssl/generate-ssl.sh` automatically (in production mode, with no arguments — i.e. `localhost` defaults) if `ssl/windfire-key.pem` or `ssl/windfire-cert.pem` is not found before the build starts.
 
 ### Production Mode (default)
 
