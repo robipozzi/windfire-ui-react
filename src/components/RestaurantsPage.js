@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { safeHttpUrl } from '../utils/safeUrl';
 import './RestaurantsPage.css';
 
 const EMPTY_FORM = {
@@ -7,6 +8,25 @@ const EMPTY_FORM = {
   province: '', region: '', country: '', cuisine: '',
   phone: '', mobile: '', email: '', website: '',
 };
+
+const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+
+// Link only http(s) URLs; anything else is shown as plain text.
+function renderWebsite(value, fallback) {
+  if (!value) return fallback;
+  const safe = safeHttpUrl(value);
+  return safe
+    ? <a href={safe} target="_blank" rel="noopener noreferrer">{value}</a>
+    : value;
+}
+
+// Build a mailto: link only for plain addresses; anything else is shown as plain text.
+function renderEmail(value, fallback) {
+  if (!value) return fallback;
+  return EMAIL_RE.test(value) && !/[:/]/.test(value)
+    ? <a href={`mailto:${value}`}>{value}</a>
+    : value;
+}
 
 export default function RestaurantsPage() {
   const { tokens } = useAuth();
@@ -24,10 +44,6 @@ export default function RestaurantsPage() {
 
   useEffect(() => {
     const url = process.env.REACT_APP_RESTAURANTS_URL;
-    // ##### START - Debug logging - remove in production
-    console.log('===> (RestaurantsPage) - url:', url);
-    console.log('===> (RestaurantsPage) - tokens:', tokens?.access_token);
-    // ##### END - Debug logging - remove in production
     fetch(url, {
       headers: {
         Authorization: `Bearer ${tokens?.access_token}`,
@@ -332,7 +348,7 @@ export default function RestaurantsPage() {
                 <td>{r.address.region}</td>
                 <td>{r.address.province}</td>
                 <td>{r.cuisine}</td>
-                <td>{r.website ? <a href={r.website} target="_blank" rel="noopener noreferrer">{r.website}</a> : ''}</td>
+                <td>{renderWebsite(r.website, '')}</td>
                 <td className="wf-col-actions">
                   {confirmDeleteId === r.id ? (
                     <span className="wf-delete-confirm">
@@ -410,15 +426,11 @@ export default function RestaurantsPage() {
                   <span className="wf-modal-value">{selectedRestaurant.mobile || '—'}</span>
                   <span className="wf-modal-label">Email</span>
                   <span className="wf-modal-value">
-                    {selectedRestaurant.email
-                      ? <a href={`mailto:${selectedRestaurant.email}`}>{selectedRestaurant.email}</a>
-                      : '—'}
+                    {renderEmail(selectedRestaurant.email, '—')}
                   </span>
                   <span className="wf-modal-label">Website</span>
                   <span className="wf-modal-value">
-                    {selectedRestaurant.website
-                      ? <a href={selectedRestaurant.website} target="_blank" rel="noopener noreferrer">{selectedRestaurant.website}</a>
-                      : '—'}
+                    {renderWebsite(selectedRestaurant.website, '—')}
                   </span>
                 </div>
               </div>

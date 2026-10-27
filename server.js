@@ -7,6 +7,7 @@ const http    = require('http');
 const fs      = require('fs');
 const path    = require('path');
 const express = require('express');
+const helmet  = require('helmet');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 // ---------------------------------------------------------------------------
@@ -43,6 +44,42 @@ try {
 // ---------------------------------------------------------------------------
 const app      = express();
 const buildDir = path.join(__dirname, 'build');
+
+// ---------------------------------------------------------------------------
+// Security headers (CSP, HSTS, Referrer-Policy)
+// connect-src allows the origins of the Keycloak and Restaurants API URLs,
+// read once at startup. Relative URLs (e.g. /keycloak) are covered by 'self'.
+// ---------------------------------------------------------------------------
+const originOf = (url) => {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+};
+
+const connectSrc = ["'self'", ...new Set([
+  originOf(process.env.REACT_APP_KEYCLOAK_URL),
+  originOf(process.env.REACT_APP_RESTAURANTS_URL),
+].filter(Boolean))];
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      defaultSrc:     ["'self'"],
+      scriptSrc:      ["'self'"],
+      styleSrc:       ["'self'", "'unsafe-inline'"],
+      imgSrc:         ["'self'", 'data:'],
+      connectSrc,
+      frameAncestors: ["'none'"],
+      objectSrc:      ["'none'"],
+      baseUri:        ["'self'"],
+    },
+  },
+  strictTransportSecurity: { maxAge: 31536000 },
+  referrerPolicy: { policy: 'no-referrer' },
+}));
 
 // ---------------------------------------------------------------------------
 // Solution 1: Proxy /keycloak/* → Keycloak server (HTTP on backend, HTTPS on frontend)

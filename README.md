@@ -54,7 +54,7 @@ windfire-ui-react/
 │   ├── generate-ssl.sh            # Script to generate self-signed key + certificate
 │   ├── windfire-key.pem           # TLS private key (not committed — see .gitignore)
 │   └── windfire-cert.pem          # TLS certificate (not committed — see .gitignore)
-├── server.js                     # Production HTTPS server (Express + Node https), optional /keycloak proxy
+├── server.js                     # Production HTTPS server (Express + Node https), security headers (helmet: CSP, HSTS, Referrer-Policy), optional /keycloak proxy
 ├── start.sh                      # Build/run helper script (production or --dev mode)
 ├── commons.sh                    # Shared terminal color codes sourced by start.sh / ssl/generate-ssl.sh
 ├── KEYCLOAK_HTTPS_PLAN.md        # Working notes on migrating Keycloak/backend to HTTPS
@@ -82,7 +82,7 @@ This app uses the **OIDC Resource Owner Password Credentials** grant (direct cre
 | Page | Component | Behavior |
 |---|---|---|
 | Home | `WindfireLogo` | Default landing view — just the Windfire logo. |
-| Restaurants | `RestaurantsPage` | Fetches restaurants from `REACT_APP_RESTAURANTS_URL` with the Keycloak access token as a `Bearer` header; supports adding a restaurant (name, address, cuisine, contact info), deleting one (with confirm step), and viewing full details in a modal. |
+| Restaurants | `RestaurantsPage` | Fetches restaurants from `REACT_APP_RESTAURANTS_URL` with the Keycloak access token as a `Bearer` header; supports adding a restaurant (name, address, cuisine, contact info), deleting one (with confirm step), and viewing full details in a modal. User-supplied websites are rendered as links (`target="_blank"`, `rel="noopener noreferrer"`) only when they parse as absolute `http:`/`https:` URLs (`src/utils/safeUrl.js`); anything else, such as `javascript:` or `data:`, is shown as plain text. Emails get a `mailto:` link only when they match a plain address pattern. |
 | Calendar | `PlaceholderPage` | "Coming soon" placeholder — not yet implemented. |
 
 The Restaurants section requires a running instance of the `windfire-restaurants-backend` API (or compatible service) reachable at `REACT_APP_RESTAURANTS_URL`, accepting `GET` / `POST` / `DELETE` with a Keycloak-issued bearer token.
@@ -272,6 +272,18 @@ The dev server will be available at `https://localhost:3000`.
 | `HTTP_REDIRECT` | `true` | Set to `false` to disable HTTP→HTTPS redirect |
 
 \* These are `server.js`'s built-in fallbacks if the variables are unset. In practice, always set `SSL_KEY_FILE`/`SSL_CRT_FILE` explicitly in `.env` (as `.env_PLACEHOLDER` does) to `ssl/windfire-key.pem` / `ssl/windfire-cert.pem`, matching the filenames produced by `ssl/generate-ssl.sh` and checked by `start.sh`.
+
+### Security Headers
+
+`server.js` uses [helmet](https://helmetjs.github.io/) to add these headers to every response from the production server:
+
+| Header | Value |
+|---|---|
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' <keycloak-origin> <restaurants-origin>; frame-ancestors 'none'; object-src 'none'; base-uri 'self'` |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
+| `Referrer-Policy` | `no-referrer` |
+
+The `connect-src` origins come from `REACT_APP_KEYCLOAK_URL` and `REACT_APP_RESTAURANTS_URL`, which `server.js` reads once at startup. Relative values such as `/keycloak` (Solution 1) are covered by `'self'` and are not added. Run the server with the same `.env` used for `npm run build`, and restart it after changing either URL. Otherwise the browser will block the API calls.
 
 ### Keycloak Redirect URI Update for HTTPS
 
