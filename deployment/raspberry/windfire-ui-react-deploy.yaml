@@ -1,0 +1,24 @@
+--- # Ansible Playbook to configure a set of Raspberry PIs in a consistent and repeatable way
+# Software installation and configuration
+- hosts: frontend
+  remote_user: "{{ user }}"
+  become: yes
+  vars:
+    src_dir: "{{ playbook_dir }}"
+    mode: u=rwx
+    react_app_keycloak_url: "{{ lookup('env', 'REACT_APP_KEYCLOAK_URL') }}"
+    react_app_keycloak_realm: "{{ lookup('env', 'REACT_APP_KEYCLOAK_REALM') }}"
+    react_app_keycloak_client_id: "{{ lookup('env', 'REACT_APP_KEYCLOAK_CLIENT_ID') }}"
+    react_app_restaurants_url: "{{ lookup('env', 'REACT_APP_RESTAURANTS_URL') }}"
+    keycloak_proxy_target: "{{ lookup('env', 'KEYCLOAK_PROXY_TARGET') }}"
+  vars_files:
+    - "{{ src_dir }}/conf/config.yaml"
+  tasks:
+    ##################################################################
+    ##### Windfire UI React frontend component deployment Section #####
+    ##################################################################
+    - import_tasks: tasks/deploy-app.yaml
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes

@@ -1,0 +1,38 @@
+--- # Ansible Playbook to configure a set of Raspberry PIs in a consistent and repeatable way
+# Software installation and configuration
+- hosts: frontend
+  remote_user: "{{ user }}"
+  become: yes
+  vars:
+    src_dir: "{{ playbook_dir }}"
+    mode: u=rwx
+  vars_files:
+    - "{{ src_dir }}/conf/config.yaml"
+  tasks:
+    ########################################################
+    ##### Windfire UI React service uninstall Section #####
+    ########################################################
+    # Task 1: Stop and disable Windfire UI React service on remote server
+    - name: Stop and disable "{{ service_name }}" systemd service if running
+      systemd:
+        name: "{{ service_name }}"
+        state: stopped
+        enabled: no
+      ignore_errors: yes
+
+    # Task 2: Remove systemd unit
+    - name: Remove Windfire UI React systemd unit file
+      file:
+        path: "/etc/systemd/system/{{ service_name }}.service"
+        state: absent
+
+    - name: Reload systemd after removing unit file
+      systemd:
+        daemon_reload: yes
+
+    # Task 3: Delete Windfire UI React directory on remote server
+    # Node.js and the shared Windfire Root CA are left in place
+    - name: Remove "{{ remote_windfire_ui_react_dir }}" folder and all its contents on remote server
+      ansible.builtin.file:
+        path: "{{ remote_windfire_ui_react_dir }}"
+        state: absent

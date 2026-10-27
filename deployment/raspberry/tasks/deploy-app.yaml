@@ -1,0 +1,195 @@
+---
+# Windfire UI React deployment tasks, shared by windfire-ui-react-deploy.yaml and windfire-ui-react-full-deploy.yaml.
+# The play runs with become (root): tasks that write under the pi home folder either set owner/group
+# or run as the connecting user with "become: false", so parent folders are never created as root.
+
+# Task 0: Check that deploy.sh exported the application configuration and built the React application
+- name: Check application configuration is set
+  ansible.builtin.assert:
+    that:
+      - react_app_keycloak_url | length > 0
+      - react_app_keycloak_realm | length > 0
+      - react_app_keycloak_client_id | length > 0
+      - react_app_restaurants_url | length > 0
+    fail_msg: "REACT_APP_KEYCLOAK_URL, REACT_APP_KEYCLOAK_REALM, REACT_APP_KEYCLOAK_CLIENT_ID and REACT_APP_RESTAURANTS_URL must be exported (run deployment/deploy.sh)"
+    quiet: true
+
+- name: Check local React build {{ local_windfire_ui_react_dir }}/build exists
+  ansible.builtin.stat:
+    path: "{{ local_windfire_ui_react_dir }}/build/index.html"
+  register: local_build
+  delegate_to: localhost
+  become: false
+
+- name: Fail if local React build is missing
+  ansible.builtin.fail:
+    msg: "{{ local_windfire_ui_react_dir }}/build/index.html not found: run deployment/deploy.sh, which builds the application"
+  when: not local_build.stat.exists
+
+# Task 1: Check Node.js runtime on remote server
+- name: Get Node.js version on remote server
+  command: node --version
+  register: node_version
+  changed_when: false
+  failed_when: false
+  become: false
+
+- name: Check Node.js {{ node_min_major }} or later is installed
+  ansible.builtin.assert:
+    that:
+      - node_version.rc == 0
+      - (node_version.stdout | regex_replace('^v', '')).split('.')[0] | int >= node_min_major
+    fail_msg: "Node.js {{ node_min_major }}+ not found on {{ inventory_hostname }} ({{ node_version.stdout | default('not installed', true) }}): run deployment/deploy.sh --full"
+    success_msg: "Node.js {{ node_version.stdout }} found"
+
+# Task 2: Stop Windfire UI React service on remote server
+- name: Stop "{{ service_name }}" systemd service if running
+  ansible.builtin.systemd:
+    name: "{{ service_name }}"
+    state: stopped
+  failed_when: false
+
+# Task 3: Recreate Windfire UI React directory on remote server
+- name: Remove "{{ remote_windfire_ui_react_dir }}" folder and all its contents on remote server
+  ansible.builtin.file:
+    path: "{{ remote_windfire_ui_react_dir }}"
+    state: absent
+
+- name: Create "{{ remote_windfire_ui_react_dir }}" folder and its ssl and logs subfolders on remote server
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ user }}"
+    group: "{{ group }}"
+    mode: "0755"
+  loop:
+    - "{{ remote_windfire_ui_react_dir }}"
+    - "{{ remote_windfire_ui_react_dir }}/ssl"
+    - "{{ remote_windfire_ui_react_dir }}/logs"
+
+# Task 4: Copy React build and production server to remote server
+# Only what the production server needs: no sources, node_modules, local .env or local certificates
+- name: Copy React build to "{{ remote_windfire_ui_react_dir }}" directory on remote server
+  ansible.builtin.synchronize:
+    src: "{{ local_windfire_ui_react_dir }}/build"
+    dest: "{{ remote_windfire_ui_react_dir }}"
+  become: false
+
+- name: Copy production server and package files to "{{ remote_windfire_ui_react_dir }}" directory on remote server
+  copy:
+    src: "{{ local_windfire_ui_react_dir }}/{{ item }}"
+    dest: "{{ remote_windfire_ui_react_dir }}/{{ item }}"
+    owner: "{{ user }}"
+    group: "{{ group }}"
+    mode: "0644"
+  loop:
+    - server.js
+    - package.json
+    - package-lock.json
+
+# Task 5: Template application configuration
+- name: Template "{{ remote_windfire_ui_react_dir }}/.env" configuration file
+  ansible.builtin.template:
+    src: "{{ src_dir }}/templates/windfire-ui-react.env.j2"
+    dest: "{{ remote_windfire_ui_react_dir }}/.env"
+    owner: "{{ user }}"
+    group: "{{ group }}"
+    mode: "0600"
+
+# Task 6: Copy TLS material to remote server
+- name: Copy certificate {{ windfire_server_certificate }} from {{ local_certs_dir }} to "{{ remote_windfire_ui_react_dir }}/ssl" directory on remote server
+  copy:
+    src: "{{ local_certs_dir }}/{{ windfire_server_certificate }}"
+    dest: "{{ remote_windfire_ui_react_dir }}/ssl/{{ windfire_server_certificate }}"
+    owner: "{{ user }}"
+    group: "{{ group }}"
+    mode: "0644"
+
+- name: Copy key {{ windfire_server_key }} from {{ local_certs_dir }} to "{{ remote_windfire_ui_react_dir }}/ssl" directory on remote server
+  copy:
+    src: "{{ local_certs_dir }}/{{ windfire_server_key }}"
+    dest: "{{ remote_windfire_ui_react_dir }}/ssl/{{ windfire_server_key }}"
+    owner: "{{ user }}"
+    group: "{{ group }}"
+    mode: "0600"
+
+- name: Ensure remote truststore directory {{ remote_truststore_dir }} exists
+  file:
+    path: "{{ remote_truststore_dir }}"
+    state: directory
+    mode: "{{ mode }}"
+  become: false
+
+- name: Copy {{ windfire_ca_root_certificate }} to "{{ remote_truststore_dir }}" directory on remote server
+  copy:
+    src: "{{ local_truststore_dir }}/{{ windfire_ca_root_certificate }}"
+    dest: "{{ remote_truststore_dir }}/{{ windfire_ca_root_certificate }}"
+    owner: "{{ user }}"
+    group: "{{ group }}"
+    mode: "0644"
+
+# Task 7: Install production Node.js modules
+- name: Install production Node.js modules with npm ci
+  command:
+    cmd: npm ci --omit=dev --no-audit --no-fund
+    chdir: "{{ remote_windfire_ui_react_dir }}"
+  become: false
+
+# Task 8: Install systemd unit
+- name: Template Windfire UI React systemd unit
+  template:
+    src: "{{ src_dir }}/templates/windfire-ui-react.service.j2"
+    dest: "/etc/systemd/system/{{ service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload systemd
+
+# Task 9: Start Windfire UI React service
+- name: Reload systemd, enable and start "{{ service_name }}" service
+  systemd:
+    daemon_reload: yes
+    name: "{{ service_name }}"
+    state: started
+    enabled: yes
+
+# Task 10: Post-deploy health check
+- name: Check Windfire UI React service health
+  block:
+    - name: Verify Windfire UI React is listening on port {{ https_port }}
+      wait_for:
+        port: "{{ https_port }}"
+        host: 127.0.0.1
+        timeout: 30
+
+    - name: Call https://{{ health_check_host }}:{{ https_port }}/
+      uri:
+        url: "https://{{ health_check_host }}:{{ https_port }}/"
+        ca_path: "{{ remote_truststore_dir }}/{{ windfire_ca_root_certificate }}"
+        status_code: 200
+      register: health
+      until: health.status == 200
+      retries: 5
+      delay: 3
+  rescue:
+    - name: Get "{{ service_name }}" journal entries
+      command: "journalctl -u {{ service_name }} -n 50 --no-pager"
+      register: service_journal
+      changed_when: false
+      failed_when: false
+
+    - name: Get "{{ service_name }}" log file tail
+      command: "tail -n 50 {{ remote_windfire_ui_react_dir }}/logs/{{ service_name }}.log"
+      register: service_log
+      changed_when: false
+      failed_when: false
+
+    - name: Display "{{ service_name }}" diagnostics
+      debug:
+        msg:
+          journal: "{{ service_journal.stdout_lines }}"
+          log: "{{ service_log.stdout_lines }}"
+
+    - name: Fail deployment
+      fail:
+        msg: "{{ service_name }} did not pass the health check, see diagnostics above"

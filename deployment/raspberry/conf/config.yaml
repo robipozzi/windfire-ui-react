@@ -1,0 +1,25 @@
+user: pi
+group: pi
+local_home_dir: "{{ lookup('env', 'HOME') }}"
+local_ssl_dir: "{{ local_home_dir }}/opt/windfire/ssl"
+local_truststore_dir: "{{ local_ssl_dir }}/truststore"
+local_certs_dir: "{{ local_ssl_dir }}/certs/raspberry"
+remote_home_dir: /home/pi
+remote_ssl_dir: "{{ remote_home_dir }}/opt/windfire/ssl"
+remote_truststore_dir: "{{ remote_ssl_dir }}/truststore"
+windfire_ca_root_certificate: "WindfireRootCA.crt"
+windfire_server_certificate: "windfire-ui-react.crt"
+windfire_server_key: "windfire-ui-react.key"
+local_windfire_ui_react_dir: "{{ playbook_dir }}/../.."
+remote_windfire_ui_react_dir: "{{ remote_home_dir }}/windfire-ui-react"
+# Node.js runtime: installed from NodeSource by windfire-ui-react-full-deploy.yaml, checked by every deploy
+nodejs_version: "22.x"
+node_min_major: 18
+# systemd service and application (.env) configuration
+service_name: windfire-ui-react
+app_description: Windfire UI React
+# Keycloak (8443) and windfire-security (8444) already listen on raspberry01; nginx may own 80/443
+https_port: 9443
+# No HTTP -> HTTPS redirect listener: only the HTTPS port is opened
+http_redirect: "false"
+health_check_host: raspberry01

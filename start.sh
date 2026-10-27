@@ -41,7 +41,7 @@ else
   # Ensure SSL certificates exist before building
   if [ ! -f "ssl/windfire-key.pem" ] || [ ! -f "ssl/windfire-cert.pem" ]; then
     echo -e "${YELLOW}==> SSL certificates not found, generating self-signed certificates...${NC}"
-    bash ssl/generate-ssl.sh
+    bash ssl/generate-ssl-cert.sh -e localhost
   else
     echo -e "${GREEN}==> SSL certificates found.${NC}"
   fi

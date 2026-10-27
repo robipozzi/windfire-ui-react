@@ -1,0 +1,18 @@
+[Unit]
+Description={{ app_description }}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ user }}
+WorkingDirectory={{ remote_windfire_ui_react_dir }}
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:{{ remote_windfire_ui_react_dir }}/logs/{{ service_name }}.log
+StandardError=append:{{ remote_windfire_ui_react_dir }}/logs/{{ service_name }}.log
+
+[Install]
+WantedBy=multi-user.target

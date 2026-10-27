@@ -35,7 +35,7 @@ try {
   console.error('       SSL_CRT_FILE :', SSL_CRT_FILE);
   console.error('       Cause        :', err.message);
   console.error('');
-  console.error('       Run ssl/generate-ssl.sh to create self-signed certificates for development.');
+  console.error('       Run ssl/generate-ssl-cert.sh to create self-signed certificates for development.');
   process.exit(1);
 }
 

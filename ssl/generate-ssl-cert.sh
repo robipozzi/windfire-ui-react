@@ -108,7 +108,7 @@ print_help() {
     echo -e "    # Generate a localhost cert with default filenames"
     echo -e "    ./generate-ssl-cert.sh"
     echo
-    echo -e "    # Generate a raspberry02 cert with custom filenames"
+    echo -e "    # Generate a raspberry01 cert with custom filenames"
     echo -e "    ./generate-ssl-cert.sh -e raspberry -c raspberry-cert.pem -k raspberry-key.pem"
     echo
     echo -e "${BOLD}PREREQUISITES:${NC}"
@@ -149,7 +149,7 @@ resolve_environment() {
             OUTPUT_DIR="$SCRIPT_DIR"
             ;;
         raspberry)
-            COMMON_NAME="raspberry02"
+            COMMON_NAME="raspberry01"
             EXT_FILE="$SCRIPT_DIR/openssl_config_raspberry.ext"
             OUTPUT_DIR="$HOME/opt/windfire/ssl/certs/raspberry"
             ;;

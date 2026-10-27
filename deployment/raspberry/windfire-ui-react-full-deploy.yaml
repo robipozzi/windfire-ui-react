@@ -1,0 +1,79 @@
+--- # Ansible Playbook to configure a set of Raspberry PIs in a consistent and repeatable way
+# Software installation and configuration
+- hosts: frontend
+  remote_user: "{{ user }}"
+  become: yes
+  vars:
+    src_dir: "{{ playbook_dir }}"
+    mode: u=rwx
+    react_app_keycloak_url: "{{ lookup('env', 'REACT_APP_KEYCLOAK_URL') }}"
+    react_app_keycloak_realm: "{{ lookup('env', 'REACT_APP_KEYCLOAK_REALM') }}"
+    react_app_keycloak_client_id: "{{ lookup('env', 'REACT_APP_KEYCLOAK_CLIENT_ID') }}"
+    react_app_restaurants_url: "{{ lookup('env', 'REACT_APP_RESTAURANTS_URL') }}"
+    keycloak_proxy_target: "{{ lookup('env', 'KEYCLOAK_PROXY_TARGET') }}"
+  vars_files:
+    - "{{ src_dir }}/conf/config.yaml"
+  pre_tasks:
+    ###############################################
+    ##### Update package manager repositories #####
+    ###############################################
+    - name: Update package manager repositories cache
+      apt:
+        update_cache: yes
+    ######################################
+    ##### Upgrade installed packages #####
+    ######################################
+    - name: Upgrade installed packages
+      apt:
+        upgrade: dist
+    - name: Remove useless packages from the cache
+      apt:
+        autoclean: yes
+    - name: Remove dependencies that are no longer required
+      apt:
+        autoremove: yes
+    ###########################
+    ##### Openssl Section #####
+    ###########################
+    - name: Install Openssl
+      apt:
+        name: openssl
+        state: present
+    ###########################
+    ##### Node.js Section #####
+    ###########################
+    - name: Install Node.js repository prerequisites
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+    - name: Ensure /etc/apt/keyrings directory exists
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+    - name: Download NodeSource repository signing key
+      get_url:
+        url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
+        dest: /etc/apt/keyrings/nodesource.asc
+        mode: "0644"
+    - name: Add NodeSource Node.js {{ nodejs_version }} repository
+      apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/nodesource.asc] https://deb.nodesource.com/node_{{ nodejs_version }} nodistro main"
+        filename: nodesource
+        update_cache: yes
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: latest
+  tasks:
+    ##################################################################
+    ##### Windfire UI React frontend component deployment Section #####
+    ##################################################################
+    - import_tasks: tasks/deploy-app.yaml
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes

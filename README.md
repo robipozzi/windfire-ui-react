@@ -51,12 +51,16 @@ windfire-ui-react/
 │   ├── setupProxy.js             # CRA dev-server proxy: /keycloak/* → KEYCLOAK_PROXY_TARGET
 │   └── index.js                  # React entry point
 ├── ssl/
-│   ├── generate-ssl.sh            # Script to generate self-signed key + certificate
+│   ├── generate-ssl-cert.sh       # Issues a key + certificate signed by the Windfire Root CA
 │   ├── windfire-key.pem           # TLS private key (not committed — see .gitignore)
 │   └── windfire-cert.pem          # TLS certificate (not committed — see .gitignore)
 ├── server.js                     # Production HTTPS server (Express + Node https), security headers (helmet: CSP, HSTS, Referrer-Policy), optional /keycloak proxy
 ├── start.sh                      # Build/run helper script (production or --dev mode)
-├── commons.sh                    # Shared terminal color codes sourced by start.sh / ssl/generate-ssl.sh
+├── commons.sh                    # Shared colors, variables and functions sourced by the shell scripts
+├── deployment/
+│   ├── deploy.sh                 # Build locally and deploy to the frontend Ansible host group
+│   ├── undeploy.sh               # Remove the deployment from the frontend Ansible host group
+│   └── raspberry/                # Ansible playbooks, tasks, templates and conf/config.yaml
 ├── KEYCLOAK_HTTPS_PLAN.md        # Working notes on migrating Keycloak/backend to HTTPS
 ├── .env_PLACEHOLDER              # Template for required environment variables
 └── .env                          # Local environment config (not committed)
@@ -108,8 +112,8 @@ Inside the `windfire` realm, create a client with the following settings:
 | Client authentication | Off (public client — no client secret) |
 | Standard flow | Optional (not used by this app) |
 | Direct access grants | **Enabled** (required — this app uses the password grant) |
-| Valid redirect URIs | `https://localhost/*`, `https://localhost:3000/*`, `https://raspberry02:8443/*` |
-| Web origins | `https://localhost`, `https://localhost:3000`, `https://raspberry02:8443` |
+| Valid redirect URIs | `https://localhost/*`, `https://localhost:3000/*`, `https://raspberry01:9443/*` |
+| Web origins | `https://localhost`, `https://localhost:3000`, `https://raspberry01:9443` |
 
 > **Why public + Direct Access Grants?** This is a browser SPA with no server-side component, so it cannot safely hold a client secret. The password grant posts credentials directly to Keycloak from the browser.
 
@@ -204,12 +208,12 @@ HTTPS is enforced using SSL certificates. The app supports two modes:
 SSL key and certificate files are stored in the `ssl/` directory (excluded from version control). A helper script issues a leaf certificate signed by the **Windfire Root CA** (see the sibling `windfire-security` repo):
 
 ```bash
-bash ssl/generate-ssl.sh
+bash ssl/generate-ssl-cert.sh
 ```
 
-This creates `ssl/windfire-key.pem` (RSA 4096-bit private key) and `ssl/windfire-cert.pem` (valid 365 days, CN=localhost), signed by the Windfire Root CA. The script is a no-op if both files already exist — delete them and re-run to regenerate.
+This creates `ssl/windfire-key.pem` (RSA 4096-bit private key) and `ssl/windfire-cert.pem` (valid 365 days, CN=localhost), signed by the Windfire Root CA. Existing files with the same names are deleted and regenerated.
 
-**Prerequisite:** the Windfire Root CA must already exist. Run `windfire-security/ssl/createRootCA.sh` first if `~/opt/windfire/ssl/truststore/WindfireRootCA.crt` / `~/opt/windfire/ssl/keystore/WindfireRootCA.key` aren't present yet. Since the Root CA key is passphrase-protected, `generate-ssl.sh` will prompt for it while signing.
+**Prerequisite:** the Windfire Root CA must already exist. Run `windfire-security/ssl/createRootCA.sh` first if `~/opt/windfire/ssl/truststore/WindfireRootCA.crt` / `~/opt/windfire/ssl/keystore/WindfireRootCA.key` aren't present yet. Since the Root CA key is passphrase-protected, `generate-ssl-cert.sh` will prompt for it while signing.
 
 Flags (all optional):
 
@@ -222,13 +226,15 @@ Flags (all optional):
 | `-h, --help` | Display usage | — |
 
 ```bash
-# Production cert for raspberry02
-bash ssl/generate-ssl.sh -e raspberry
+# Production cert for raspberry01 (written to ~/opt/windfire/ssl/certs/raspberry)
+bash ssl/generate-ssl-cert.sh -e raspberry -c windfire-ui-react.crt -k windfire-ui-react.key
 ```
+
+`deployment/deploy.sh` runs this command for you when the certificate is missing (see [Deployment](#deployment)).
 
 > **The Windfire Root CA is not in the system/browser trust store by default.** It must be trusted separately by any client connecting to this server over HTTPS.
 
-`start.sh` calls `ssl/generate-ssl.sh` automatically (in production mode, with no arguments — i.e. `localhost` defaults) if `ssl/windfire-key.pem` or `ssl/windfire-cert.pem` is not found before the build starts.
+`start.sh` calls `ssl/generate-ssl-cert.sh -e localhost` automatically (in production mode) if `ssl/windfire-key.pem` or `ssl/windfire-cert.pem` is not found before the build starts.
 
 ### Production Mode (default)
 
@@ -271,7 +277,7 @@ The dev server will be available at `https://localhost:3000`.
 | `HTTP_PORT` | `80` | HTTP redirect server port |
 | `HTTP_REDIRECT` | `true` | Set to `false` to disable HTTP→HTTPS redirect |
 
-\* These are `server.js`'s built-in fallbacks if the variables are unset. In practice, always set `SSL_KEY_FILE`/`SSL_CRT_FILE` explicitly in `.env` (as `.env_PLACEHOLDER` does) to `ssl/windfire-key.pem` / `ssl/windfire-cert.pem`, matching the filenames produced by `ssl/generate-ssl.sh` and checked by `start.sh`.
+\* These are `server.js`'s built-in fallbacks if the variables are unset. In practice, always set `SSL_KEY_FILE`/`SSL_CRT_FILE` explicitly in `.env` (as `.env_PLACEHOLDER` does) to `ssl/windfire-key.pem` / `ssl/windfire-cert.pem`, matching the filenames produced by `ssl/generate-ssl-cert.sh` and checked by `start.sh`.
 
 ### Security Headers
 
@@ -291,8 +297,8 @@ When switching from HTTP to HTTPS, update the Keycloak client's **Valid redirect
 
 | Setting | HTTP value | HTTPS value |
 |---|---|---|
-| Valid redirect URIs | `http://localhost:3000/*` | `https://localhost/*`, `https://localhost:3000/*`, `https://raspberry02:8443/*` |
-| Web origins | `http://localhost:3000` | `https://localhost`, `https://localhost:3000`, `https://raspberry02:8443` |
+| Valid redirect URIs | `http://localhost:3000/*` | `https://localhost/*`, `https://localhost:3000/*`, `https://raspberry01:9443/*` |
+| Web origins | `http://localhost:3000` | `https://localhost`, `https://localhost:3000`, `https://raspberry01:9443` |
 
 > The app will fail to authenticate if the redirect URIs in Keycloak still point to `http://` after switching to HTTPS.
 >
@@ -319,6 +325,50 @@ Keycloak's HTTPS listener currently serves a **self-signed certificate**. Until 
      ```
      Firefox keeps its own certificate store (NSS) separate from the OS — import the CA cert manually via `about:preferences#privacy` → **View Certificates** → **Authorities** → **Import** if Firefox is used.
 
-Repeat this on every machine a browser is used against this app — the dev Mac, and `raspberry02` if a browser is ever pointed directly at it.
+Repeat this on every machine a browser is used against this app — the dev Mac, and `raspberry01` if a browser is ever pointed directly at it.
 
 > See [KEYCLOAK_HTTPS_PLAN.md](KEYCLOAK_HTTPS_PLAN.md) for the working notes on migrating Keycloak and the Restaurants backend to HTTPS end-to-end, including the mixed-content proxy rationale above.
+
+---
+
+## Deployment
+
+The [deployment/](deployment/) folder contains scripts that run Ansible playbooks against the `frontend` host group of your Ansible inventory (`/etc/ansible/hosts`, i.e. `raspberry01`), using the SSH key `$HOME/.ssh/ansible_rsa`. The app runs on the Pi as the `windfire-ui-react` systemd service, serving HTTPS on port **9443** (raspberry01 already uses `8443` for Keycloak and `8444` for windfire-security; `80`/`443` are left to nginx). The HTTP→HTTPS redirect listener is disabled. The scripts work from any folder.
+
+```bash
+deployment/deploy.sh [1] [--full]   # 1 = Raspberry; --full also upgrades packages and installs Node.js
+deployment/undeploy.sh [1] [-y]     # -y skips the confirmation prompt (not the sudo password)
+deployment/deploy.sh --help
+```
+
+Run `deploy.sh --full` the first time (raspberry01 has no Node.js yet); later deploys only need `deploy.sh`.
+
+### What you need before deploying
+* Ansible (`ansible-playbook`) and Node.js/npm installed locally, and the SSH key `$HOME/.ssh/ansible_rsa`
+* the sudo password of user `pi` on the Pi: sudo is not passwordless, so every playbook run asks for it as `BECOME password` ([ansible.cfg](deployment/raspberry/ansible.cfg) sets `become_ask_pass`)
+* `rsync` both locally and on the Pi (used by the Ansible `synchronize` module)
+* the Windfire Root CA in `$HOME/opt/windfire/ssl/truststore` (create it with `windfire-security/ssl/createRootCA.sh`)
+* a local `.env` (copy `.env_PLACEHOLDER`): its values are offered as defaults
+
+### What `deploy.sh` does
+1. **Pre-flight checks**: checks for `ansible-playbook`, `npm`, the SSH key and the Windfire Root CA, and stops with a red error if one is missing. If `windfire-ui-react.crt` / `.key` are missing from `$HOME/opt/windfire/ssl/certs/raspberry`, it runs [generate-ssl-cert.sh](ssl/generate-ssl-cert.sh) `-e raspberry` (CN/SAN `raspberry01`).
+2. **Configuration**: asks for `REACT_APP_KEYCLOAK_URL`, `REACT_APP_KEYCLOAK_REALM`, `REACT_APP_KEYCLOAK_CLIENT_ID`, `REACT_APP_RESTAURANTS_URL` and the optional `KEYCLOAK_PROXY_TARGET` (defaults from your local `.env`), and warns about values pointing at `localhost`. These values end up in the JavaScript bundle and are public: never put secrets in them.
+3. **Build**: runs `npm ci && npm run build` locally with those values (they override `.env`). The Pi never builds the app.
+4. **Playbook**: asks for the `pi` sudo password (`BECOME password`), then runs [windfire-ui-react-deploy.yaml](deployment/raspberry/windfire-ui-react-deploy.yaml) (or [windfire-ui-react-full-deploy.yaml](deployment/raspberry/windfire-ui-react-full-deploy.yaml) with `--full`, which first runs `apt` update/dist-upgrade and installs Node.js `22.x` from NodeSource), configured via **[conf/config.yaml](deployment/raspberry/conf/config.yaml)**:
+   1. checks that Node.js 18 or later is installed on the Pi, and stops the `windfire-ui-react` service
+   2. removes and recreates `/home/pi/windfire-ui-react`, and copies only `build/`, `server.js`, `package.json` and `package-lock.json`
+   3. builds `.env` from [windfire-ui-react.env.j2](deployment/raspberry/templates/windfire-ui-react.env.j2) (port, TLS paths, the two URLs used for the CSP `connect-src`, optional proxy target; mode `0600`)
+   4. copies the server certificate (`0644`) and key (`0600`) to `ssl/`, and the Windfire Root CA to `/home/pi/opt/windfire/ssl/truststore`
+   5. runs `npm ci --omit=dev` (only `express`, `helmet`, `http-proxy-middleware` and `dotenv` are installed)
+5. **systemd**: installs the unit from [windfire-ui-react.service.j2](deployment/raspberry/templates/windfire-ui-react.service.j2), then enables and starts the service. systemd restarts it 5 seconds after a failure and starts it at boot. Logs go to `/home/pi/windfire-ui-react/logs/windfire-ui-react.log`.
+6. **Health check**: waits for port 9443 and calls `https://raspberry01:9443/`, checking the certificate against the Windfire Root CA. If the check fails, it prints the last 50 lines of the journal and of the service log, and the deploy fails.
+
+Re-run `deploy.sh` whenever the code or a `REACT_APP_*` value changes: every deploy rebuilds the bundle and replaces the remote folder.
+
+### What `undeploy.sh` does
+After confirmation, it runs [windfire-ui-react-undeploy.yaml](deployment/raspberry/windfire-ui-react-undeploy.yaml): stops and disables the service, removes its systemd unit and deletes `/home/pi/windfire-ui-react`. Node.js and the shared Windfire Root CA are left in place.
+
+### After the first deploy
+* Add `https://raspberry01:9443/*` to the Keycloak client's **Valid redirect URIs** and `https://raspberry01:9443` to its **Web origins** (see [Keycloak Redirect URI Update for HTTPS](#keycloak-redirect-uri-update-for-https)), and allow the same origin in the Restaurants API CORS configuration.
+* Trust the Windfire Root CA in the browsers that open `https://raspberry01:9443`.
+* If a firewall is active on raspberry01 (e.g. `ufw`), allow TCP port 9443.
