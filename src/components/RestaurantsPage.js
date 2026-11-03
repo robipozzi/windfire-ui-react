@@ -37,7 +37,9 @@ function requestError(res) {
 }
 
 export default function RestaurantsPage() {
-  const { authFetch } = useAuth();
+  const { authFetch, hasApiRole } = useAuth();
+  // Only writers may add or delete; the backend rejects anyone else with 403.
+  const canWrite = hasApiRole('restaurants-writer');
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -81,6 +83,7 @@ export default function RestaurantsPage() {
   }
 
   async function handleDelete(restaurant) {
+    if (!canWrite) return;
     setConfirmDeleteId(null);
     setDeletingId(restaurant.id);
     setDeleteError(null);
@@ -98,6 +101,7 @@ export default function RestaurantsPage() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!canWrite) return;
     setSubmitting(true);
     setFormError(null);
 
@@ -155,14 +159,14 @@ export default function RestaurantsPage() {
     <div className="wf-restaurants">
       <div className="wf-restaurants-header">
         <h2 className="wf-restaurants-title">Restaurants</h2>
-        {!showForm && (
+        {canWrite && !showForm && (
           <button className="wf-btn-add" onClick={() => setShowForm(true)}>
             + Add Restaurant
           </button>
         )}
       </div>
 
-      {showForm && (
+      {canWrite && showForm && (
         <form className="wf-restaurant-form" onSubmit={handleSubmit}>
           <h3 className="wf-form-title">New Restaurant</h3>
           <div className="wf-form-grid">
@@ -330,7 +334,7 @@ export default function RestaurantsPage() {
               <th>Province</th>
               <th>Cuisine</th>
               <th>Website</th>
-              <th className="wf-col-actions">Actions</th>
+              {canWrite && <th className="wf-col-actions">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -346,6 +350,7 @@ export default function RestaurantsPage() {
                 <td>{r.address.province}</td>
                 <td>{r.cuisine}</td>
                 <td>{renderWebsite(r.website, '')}</td>
+                {canWrite && (
                 <td className="wf-col-actions">
                   {confirmDeleteId === r.id ? (
                     <span className="wf-delete-confirm">
@@ -381,6 +386,7 @@ export default function RestaurantsPage() {
                     </button>
                   )}
                 </td>
+                )}
               </tr>
             ))}
           </tbody>

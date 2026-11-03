@@ -10,6 +10,8 @@ const STORAGE_KEY = 'wf_auth';
 // Refresh the access token when it expires within this many seconds.
 const EXPIRY_SKEW_SECONDS = 30;
 const SESSION_EXPIRED_MESSAGE = 'Your session has expired. Please sign in again.';
+// Keycloak client whose roles the restaurants backend authorizes against.
+const API_CLIENT_ID = process.env.REACT_APP_RESTAURANTS_API_CLIENT_ID || 'windfire-restaurants-api';
 const AuthContext = createContext(null);
 
 function loadStored() {
@@ -24,6 +26,12 @@ function isExpiring(accessToken) {
   const { exp } = decodeToken(accessToken);
   if (!exp) return true;
   return exp - EXPIRY_SKEW_SECONDS <= Date.now() / 1000;
+}
+
+// True when the decoded token grants `role` on `clientId` (resource_access.<clientId>.roles).
+export function hasClientRole(user, clientId, role) {
+  const roles = user?.resource_access?.[clientId]?.roles;
+  return Array.isArray(roles) && roles.includes(role);
 }
 
 export class SessionExpiredError extends Error {
@@ -116,6 +124,7 @@ export function AuthProvider({ children }) {
       user: state?.user ?? null,
       tokens: state?.tokens ?? null,
       sessionMessage,
+      hasApiRole: (role) => hasClientRole(state?.user, API_CLIENT_ID, role),
       login,
       logout,
       authFetch,

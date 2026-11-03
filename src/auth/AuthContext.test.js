@@ -1,5 +1,5 @@
 import { render, screen, act, waitFor } from '@testing-library/react';
-import { AuthProvider, useAuth, SessionExpiredError } from './AuthContext';
+import { AuthProvider, useAuth, SessionExpiredError, hasClientRole } from './AuthContext';
 
 const API_URL = 'https://api.example/restaurants';
 
@@ -113,4 +113,29 @@ test('concurrent requests share a single refresh', async () => {
 
   expect(fetch.mock.calls.filter(isTokenCall)).toHaveLength(1);
   expect(fetch.mock.calls.filter((c) => !isTokenCall(c))).toHaveLength(2);
+});
+
+describe('hasClientRole', () => {
+  const CLIENT = 'windfire-restaurants-api';
+
+  test('true when the role is granted on the client', () => {
+    const user = { resource_access: { [CLIENT]: { roles: ['restaurants-reader', 'restaurants-writer'] } } };
+    expect(hasClientRole(user, CLIENT, 'restaurants-writer')).toBe(true);
+  });
+
+  test('false when the role is granted on another client', () => {
+    const user = { resource_access: { 'other-client': { roles: ['restaurants-writer'] } } };
+    expect(hasClientRole(user, CLIENT, 'restaurants-writer')).toBe(false);
+  });
+
+  test('false for a realm-only role', () => {
+    expect(hasClientRole({ realm_access: { roles: ['restaurants-writer'] } }, CLIENT, 'restaurants-writer')).toBe(false);
+  });
+
+  test('false for missing or malformed claims', () => {
+    expect(hasClientRole(null, CLIENT, 'restaurants-writer')).toBe(false);
+    expect(hasClientRole({}, CLIENT, 'restaurants-writer')).toBe(false);
+    expect(hasClientRole({ resource_access: { [CLIENT]: 'restaurants-writer' } }, CLIENT, 'restaurants-writer')).toBe(false);
+    expect(hasClientRole({ resource_access: { [CLIENT]: { roles: 'restaurants-writer' } } }, CLIENT, 'restaurants-writer')).toBe(false);
+  });
 });
