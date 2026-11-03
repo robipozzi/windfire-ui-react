@@ -329,6 +329,30 @@ Repeat this on every machine a browser is used against this app — the dev Mac,
 
 > See [KEYCLOAK_HTTPS_PLAN.md](KEYCLOAK_HTTPS_PLAN.md) for the working notes on migrating Keycloak and the Restaurants backend to HTTPS end-to-end, including the mixed-content proxy rationale above.
 
+### Running locally against the Restaurants API
+
+When the app runs locally, the Restaurants page may show `Failed to load restaurants: Cannot reach the Restaurants API (network, certificate or CORS error).`, and Safari's console reports `Preflight response is not successful. Status code: 403` (Chrome: `Failed to fetch` with a CORS error).
+
+The cause is CORS. Because the `Authorization` header is sent, the browser first sends an `OPTIONS` preflight carrying the app's origin. The backend rejects any origin missing from its `CORS_ALLOWED_ORIGINS` with `403` and no `Access-Control-Allow-Origin` header. The deployed backend on `raspberry02:8081` only allows `https://raspberry01:9443`, so a local origin such as `https://localhost` or `http://localhost:3000` is rejected there. The access token is not the problem: the same request via curl or Postman succeeds.
+
+To develop locally, run the Restaurants backend locally as well:
+
+1. In `windfire-restaurants-backend`, run `./run-windfire-restaurants-backend.sh`. Its default CORS origin is `https://localhost`, where `./start.sh` serves this app. If you use `./start.sh --dev` (port 3000), enter `http://localhost:3000` (or `https://localhost:3000` with dev HTTPS) at the CORS prompt instead.
+2. In `.env`, set:
+   ```
+   REACT_APP_RESTAURANTS_URL=https://localhost:8081/restaurants
+   ```
+3. Start (or restart) the app with `./start.sh`. `REACT_APP_*` values are read only at start or build time.
+
+You can check the preflight on its own:
+```bash
+curl -sk -o /dev/null -D - -X OPTIONS https://localhost:8081/restaurants \
+  -H 'Origin: https://localhost' \
+  -H 'Access-Control-Request-Method: GET' \
+  -H 'Access-Control-Request-Headers: authorization'
+```
+Expect `200` with `Access-Control-Allow-Origin: https://localhost`. A `403` means the origin is not in `CORS_ALLOWED_ORIGINS`.
+
 ---
 
 ## Deployment

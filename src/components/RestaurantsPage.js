@@ -36,6 +36,15 @@ function requestError(res) {
   return new Error(`Request failed: ${res.status} ${res.statusText}`);
 }
 
+// fetch() rejects with a TypeError when no usable response arrives (server down,
+// untrusted certificate, CORS rejection); the browser's own text ("Load failed") says nothing useful.
+function errorMessage(err) {
+  if (err instanceof TypeError) {
+    return 'Cannot reach the Restaurants API (network, certificate or CORS error).';
+  }
+  return err.message;
+}
+
 export default function RestaurantsPage() {
   const { authFetch, hasApiRole } = useAuth();
   // Only writers may add or delete; the backend rejects anyone else with 403.
@@ -66,7 +75,7 @@ export default function RestaurantsPage() {
       .catch((err) => {
         // On session expiry the app switches to the login form; nothing to show here.
         if (err instanceof SessionExpiredError) return;
-        setError(err.message);
+        setError(errorMessage(err));
         setLoading(false);
       });
   }, [authFetch]);
@@ -93,7 +102,7 @@ export default function RestaurantsPage() {
       if (!res.ok) throw requestError(res);
       setRestaurants((prev) => prev.filter((r) => r.id !== restaurant.id));
     } catch (err) {
-      setDeleteError(err.message);
+      setDeleteError(errorMessage(err));
     } finally {
       setDeletingId(null);
     }
@@ -133,7 +142,7 @@ export default function RestaurantsPage() {
       setRestaurants((prev) => [...prev, newRestaurant]);
       handleCancel();
     } catch (err) {
-      setFormError(err.message);
+      setFormError(errorMessage(err));
     } finally {
       setSubmitting(false);
     }

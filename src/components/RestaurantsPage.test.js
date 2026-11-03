@@ -59,3 +59,14 @@ test('readers see the list and details but no write actions', async () => {
   fireEvent.click(screen.getByRole('button', { name: RESTAURANT.name }));
   expect(screen.getByRole('heading', { name: RESTAURANT.name })).toBeInTheDocument();
 });
+
+test('an unreachable API shows a clear message instead of the browser text', async () => {
+  storeSessionWithRoles(['restaurants-reader']);
+  global.fetch.mockImplementation(() => Promise.reject(new TypeError('Load failed')));
+  render(<AuthProvider><RestaurantsPage /></AuthProvider>);
+
+  expect(await screen.findByText(
+    'Failed to load restaurants: Cannot reach the Restaurants API (network, certificate or CORS error).'
+  )).toBeInTheDocument();
+  expect(screen.queryByText(/Load failed/)).not.toBeInTheDocument();
+});
