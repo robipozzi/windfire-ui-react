@@ -23,6 +23,23 @@ export async function login(username, password) {
   return res.json();
 }
 
+export async function refresh(refreshToken) {
+  const res = await fetch(tokenUrl(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: CLIENT_ID,
+      refresh_token: refreshToken,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error_description || 'Token refresh failed');
+  }
+  return res.json();
+}
+
 export async function logout(refreshToken) {
   await fetch(
     `${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/logout`,

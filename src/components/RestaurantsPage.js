@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth, SessionExpiredError } from '../auth/AuthContext';
 import { safeHttpUrl } from '../utils/safeUrl';
 import './RestaurantsPage.css';
 
@@ -28,8 +28,16 @@ function renderEmail(value, fallback) {
     : value;
 }
 
+// Turn a failed response into a readable message.
+function requestError(res) {
+  if (res.status === 403) {
+    return new Error('You are not authorized to perform this action.');
+  }
+  return new Error(`Request failed: ${res.status} ${res.statusText}`);
+}
+
 export default function RestaurantsPage() {
-  const { tokens } = useAuth();
+  const { authFetch } = useAuth();
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -44,14 +52,9 @@ export default function RestaurantsPage() {
 
   useEffect(() => {
     const url = process.env.REACT_APP_RESTAURANTS_URL;
-    fetch(url, {
-      headers: {
-        Authorization: `Bearer ${tokens?.access_token}`,
-      },
-    })
+    authFetch(url)
       .then((res) => {
-        if (!res.ok) 
-          throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+        if (!res.ok) throw requestError(res);
         return res.json();
       })
       .then((data) => {
@@ -59,10 +62,12 @@ export default function RestaurantsPage() {
         setLoading(false);
       })
       .catch((err) => {
+        // On session expiry the app switches to the login form; nothing to show here.
+        if (err instanceof SessionExpiredError) return;
         setError(err.message);
         setLoading(false);
       });
-  }, [tokens?.access_token]);
+  }, [authFetch]);
 
   function handleFormChange(e) {
     const { name, value } = e.target;
@@ -81,12 +86,8 @@ export default function RestaurantsPage() {
     setDeleteError(null);
     const url = `${process.env.REACT_APP_RESTAURANTS_URL}/${restaurant.id}`;
     try {
-      const res = await fetch(url, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${tokens?.access_token}` },
-      });
-      if (!res.ok) 
-        throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+      const res = await authFetch(url, { method: 'DELETE' });
+      if (!res.ok) throw requestError(res);
       setRestaurants((prev) => prev.filter((r) => r.id !== restaurant.id));
     } catch (err) {
       setDeleteError(err.message);
@@ -119,16 +120,12 @@ export default function RestaurantsPage() {
 
     const url = process.env.REACT_APP_RESTAURANTS_URL;
     try {
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${tokens?.access_token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newRestaurant),
       });
-      if (!res.ok) 
-        throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+      if (!res.ok) throw requestError(res);
       setRestaurants((prev) => [...prev, newRestaurant]);
       handleCancel();
     } catch (err) {

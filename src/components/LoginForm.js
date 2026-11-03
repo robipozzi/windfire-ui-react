@@ -3,7 +3,7 @@ import { useAuth } from '../auth/AuthContext';
 import './LoginForm.css';
 
 export default function LoginForm() {
-  const { login } = useAuth();
+  const { login, sessionMessage } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -70,6 +70,10 @@ export default function LoginForm() {
               </button>
             </div>
           </div>
+
+          {sessionMessage && !error && (
+            <div className="login-error" role="status">{sessionMessage}</div>
+          )}
 
           {error && (
             <div className="login-error" role="alert">{error}</div>
