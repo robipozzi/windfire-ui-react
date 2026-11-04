@@ -6,6 +6,7 @@ source ../commons.sh
 
 # ===== DEFAULT VALUES =====
 FULL_DEPLOY=false
+DEFAULT_RESTAURANTS_URL=https://raspberry02:8081/restaurants
 
 # ===== MAIN FUNCTION =====
 main() {
@@ -188,7 +189,13 @@ collectAppConfig()
     done
     REACT_APP_KEYCLOAK_REALM=$(inputWithDefault "Keycloak realm (REACT_APP_KEYCLOAK_REALM)" "$(getEnvFileValue $envFile REACT_APP_KEYCLOAK_REALM)")
     REACT_APP_KEYCLOAK_CLIENT_ID=$(inputWithDefault "Keycloak client id (REACT_APP_KEYCLOAK_CLIENT_ID)" "$(getEnvFileValue $envFile REACT_APP_KEYCLOAK_CLIENT_ID)")
-    REACT_APP_RESTAURANTS_URL=$(inputWithDefault "Restaurants API URL (REACT_APP_RESTAURANTS_URL)" "$(getEnvFileValue $envFile REACT_APP_RESTAURANTS_URL)")
+    # The local .env usually holds the dev value (localhost): offer the Raspberry backend instead
+    local restaurantsDefault
+    restaurantsDefault=$(getEnvFileValue $envFile REACT_APP_RESTAURANTS_URL)
+    if [[ -z "$restaurantsDefault" || "$restaurantsDefault" == *localhost* || "$restaurantsDefault" == *127.0.0.1* ]]; then
+        restaurantsDefault=$DEFAULT_RESTAURANTS_URL
+    fi
+    REACT_APP_RESTAURANTS_URL=$(inputWithDefault "Restaurants API URL (REACT_APP_RESTAURANTS_URL)" "$restaurantsDefault")
     warnIfLocalhost REACT_APP_KEYCLOAK_URL "$REACT_APP_KEYCLOAK_URL"
     warnIfLocalhost REACT_APP_RESTAURANTS_URL "$REACT_APP_RESTAURANTS_URL"
     export REACT_APP_KEYCLOAK_URL REACT_APP_KEYCLOAK_REALM REACT_APP_KEYCLOAK_CLIENT_ID REACT_APP_RESTAURANTS_URL

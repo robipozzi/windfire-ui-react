@@ -9,7 +9,7 @@
     react_app_keycloak_url: "{{ lookup('env', 'REACT_APP_KEYCLOAK_URL') }}"
     react_app_keycloak_realm: "{{ lookup('env', 'REACT_APP_KEYCLOAK_REALM') }}"
     react_app_keycloak_client_id: "{{ lookup('env', 'REACT_APP_KEYCLOAK_CLIENT_ID') }}"
-    react_app_restaurants_url: "{{ lookup('env', 'REACT_APP_RESTAURANTS_URL') }}"
+    react_app_restaurants_url: "{{ lookup('env', 'REACT_APP_RESTAURANTS_URL') | default('https://raspberry02:8081/restaurants', true) }}"
   vars_files:
     - "{{ src_dir }}/conf/config.yaml"
   tasks:
