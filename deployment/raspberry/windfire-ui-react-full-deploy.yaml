@@ -10,7 +10,6 @@
     react_app_keycloak_realm: "{{ lookup('env', 'REACT_APP_KEYCLOAK_REALM') }}"
     react_app_keycloak_client_id: "{{ lookup('env', 'REACT_APP_KEYCLOAK_CLIENT_ID') }}"
     react_app_restaurants_url: "{{ lookup('env', 'REACT_APP_RESTAURANTS_URL') }}"
-    keycloak_proxy_target: "{{ lookup('env', 'KEYCLOAK_PROXY_TARGET') }}"
   vars_files:
     - "{{ src_dir }}/conf/config.yaml"
   pre_tasks:

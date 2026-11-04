@@ -166,20 +166,6 @@ inputWithDefault()
     echo "$value"
 }
 
-# Like inputWithDefault, but a blank answer is accepted; "-" clears a non-empty default
-inputOptional()
-{
-    local label=$1
-    local default=$2
-    local value=
-    read -r -p "${CYAN_P}Input $label (optional, - for none) [${default}]: ${END}" value
-    value=${value:-$default}
-    if [[ "$value" == "-" ]]; then
-        value=
-    fi
-    echo "$value"
-}
-
 warnIfLocalhost()
 {
     local name=$1
@@ -195,14 +181,17 @@ collectAppConfig()
     echo -e "${WHITE}These values are bundled into the React build and are public: do not use secrets here${NC}"
     local envFile=../.env
     REACT_APP_KEYCLOAK_URL=$(inputWithDefault "Keycloak URL (REACT_APP_KEYCLOAK_URL)" "$(getEnvFileValue $envFile REACT_APP_KEYCLOAK_URL)")
+    # server.js refuses to start with a relative Keycloak URL (left over from the removed /keycloak proxy)
+    while [[ "$REACT_APP_KEYCLOAK_URL" == /* ]]; do
+        echo -e "${RED}REACT_APP_KEYCLOAK_URL=$REACT_APP_KEYCLOAK_URL is relative: the /keycloak proxy has been removed. Enter the absolute https:// URL of Keycloak (and fix it in .env)${NC}"
+        REACT_APP_KEYCLOAK_URL=$(inputWithDefault "Keycloak URL (REACT_APP_KEYCLOAK_URL)" "")
+    done
     REACT_APP_KEYCLOAK_REALM=$(inputWithDefault "Keycloak realm (REACT_APP_KEYCLOAK_REALM)" "$(getEnvFileValue $envFile REACT_APP_KEYCLOAK_REALM)")
     REACT_APP_KEYCLOAK_CLIENT_ID=$(inputWithDefault "Keycloak client id (REACT_APP_KEYCLOAK_CLIENT_ID)" "$(getEnvFileValue $envFile REACT_APP_KEYCLOAK_CLIENT_ID)")
     REACT_APP_RESTAURANTS_URL=$(inputWithDefault "Restaurants API URL (REACT_APP_RESTAURANTS_URL)" "$(getEnvFileValue $envFile REACT_APP_RESTAURANTS_URL)")
-    KEYCLOAK_PROXY_TARGET=$(inputOptional "Keycloak proxy target (KEYCLOAK_PROXY_TARGET)" "$(getEnvFileValue $envFile KEYCLOAK_PROXY_TARGET)")
     warnIfLocalhost REACT_APP_KEYCLOAK_URL "$REACT_APP_KEYCLOAK_URL"
     warnIfLocalhost REACT_APP_RESTAURANTS_URL "$REACT_APP_RESTAURANTS_URL"
-    warnIfLocalhost KEYCLOAK_PROXY_TARGET "$KEYCLOAK_PROXY_TARGET"
-    export REACT_APP_KEYCLOAK_URL REACT_APP_KEYCLOAK_REALM REACT_APP_KEYCLOAK_CLIENT_ID REACT_APP_RESTAURANTS_URL KEYCLOAK_PROXY_TARGET
+    export REACT_APP_KEYCLOAK_URL REACT_APP_KEYCLOAK_REALM REACT_APP_KEYCLOAK_CLIENT_ID REACT_APP_RESTAURANTS_URL
     echo
 }
 

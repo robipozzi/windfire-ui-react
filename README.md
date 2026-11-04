@@ -48,13 +48,12 @@ windfire-ui-react/
 │   │   └── ArchitectureDiagram.js  # Inline SVG system architecture diagram (not currently rendered)
 │   ├── App.js                    # Root component: routes between LoginForm and HomePage
 │   ├── App.css / index.css       # Global styles
-│   ├── setupProxy.js             # CRA dev-server proxy: /keycloak/* → KEYCLOAK_PROXY_TARGET
 │   └── index.js                  # React entry point
 ├── ssl/
 │   ├── generate-ssl-cert.sh       # Issues a key + certificate signed by the Windfire Root CA
 │   ├── windfire-key.pem           # TLS private key (not committed — see .gitignore)
 │   └── windfire-cert.pem          # TLS certificate (not committed — see .gitignore)
-├── server.js                     # Production HTTPS server (Express + Node https), security headers (helmet: CSP, HSTS, Referrer-Policy), optional /keycloak proxy
+├── server.js                     # Production HTTPS server (Express + Node https), security headers (helmet: CSP, HSTS, nosniff, Referrer-Policy, COOP; Permissions-Policy), cache headers
 ├── start.sh                      # Build/run helper script (production or --dev mode)
 ├── commons.sh                    # Shared colors, variables and functions sourced by the shell scripts
 ├── deployment/
@@ -140,14 +139,13 @@ REACT_APP_KEYCLOAK_CLIENT_ID=windfire
 REACT_APP_RESTAURANTS_URL=<restaurants-backend-endpoint>
 ```
 
-For reaching Keycloak itself, `.env_PLACEHOLDER` offers **two mutually exclusive solutions** — pick one:
+Keycloak is served over HTTPS and the browser talks to it directly, so set its absolute URL:
 
-| Solution | When to use | Variables |
-|---|---|---|
-| 1. HTTPS proxy | Keycloak only serves HTTP; avoid a mixed-content error by proxying it through this app's own server. | `REACT_APP_KEYCLOAK_URL=/keycloak`, `KEYCLOAK_PROXY_TARGET=<keycloak-http-url>` |
-| 2. Direct HTTPS | Keycloak already serves HTTPS end-to-end. | `REACT_APP_KEYCLOAK_URL=<keycloak-https-url>` |
+```
+REACT_APP_KEYCLOAK_URL=<keycloak-https-url>
+```
 
-Solution 1 is implemented by `setupProxy.js` (dev server) and the `/keycloak` proxy in `server.js` (production server): both forward `/keycloak/*` requests to `KEYCLOAK_PROXY_TARGET`, so the browser only ever talks to this app's own origin over HTTPS and `KEYCLOAK_PROXY_TARGET` is never bundled into the client build.
+`server.js` refuses to start if `REACT_APP_KEYCLOAK_URL` is relative (for example `/keycloak`, from the old proxy setup, which has been removed).
 
 > `.env` is listed in `.gitignore` — do not commit it.
 
@@ -287,18 +285,23 @@ The dev server will be available at `https://localhost:3000`.
 |---|---|
 | `Content-Security-Policy` | `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' <keycloak-origin> <restaurants-origin>; frame-ancestors 'none'; object-src 'none'; base-uri 'self'` |
 | `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
+| `X-Content-Type-Options` | `nosniff` |
 | `Referrer-Policy` | `no-referrer` |
+| `Cross-Origin-Opener-Policy` | `same-origin` |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` |
 
-The `connect-src` origins come from `REACT_APP_KEYCLOAK_URL` and `REACT_APP_RESTAURANTS_URL`, which `server.js` reads once at startup. Relative values such as `/keycloak` (Solution 1) are covered by `'self'` and are not added. Run the server with the same `.env` used for `npm run build`, and restart it after changing either URL. Otherwise the browser will block the API calls.
+`X-Powered-By` is disabled. `index.html` (including the SPA fallback for every unknown route) is served with `Cache-Control: no-store`. The content-hashed bundles under `build/static/` are served with `Cache-Control: public, max-age=31536000, immutable`.
+
+The `connect-src` origins come from `REACT_APP_KEYCLOAK_URL` and `REACT_APP_RESTAURANTS_URL`, which `server.js` reads once at startup. Run the server with the same `.env` used for `npm run build`, and restart it after changing either URL. Otherwise the browser will block the API calls.
 
 ### Keycloak Redirect URI Update for HTTPS
 
 When switching from HTTP to HTTPS, update the Keycloak client's **Valid redirect URIs** and **Web origins** to use `https://`, covering every real origin the app is served from:
 
-| Setting | HTTP value | HTTPS value |
-|---|---|---|
-| Valid redirect URIs | `http://localhost:3000/*` | `https://localhost/*`, `https://localhost:3000/*`, `https://raspberry01:9443/*` |
-| Web origins | `http://localhost:3000` | `https://localhost`, `https://localhost:3000`, `https://raspberry01:9443` |
+| Setting | HTTPS value |
+|---|---|
+| Valid redirect URIs | `https://localhost/*`, `https://localhost:3000/*`, `https://raspberry01:9443/*` |
+| Web origins | `https://localhost`, `https://localhost:3000`, `https://raspberry01:9443` |
 
 > The app will fail to authenticate if the redirect URIs in Keycloak still point to `http://` after switching to HTTPS.
 >
@@ -376,14 +379,14 @@ Run `deploy.sh --full` the first time (raspberry01 has no Node.js yet); later de
 
 ### What `deploy.sh` does
 1. **Pre-flight checks**: checks for `ansible-playbook`, `npm`, the SSH key and the Windfire Root CA, and stops with a red error if one is missing. If `windfire-ui-react.crt` / `.key` are missing from `$HOME/opt/windfire/ssl/certs/raspberry`, it runs [generate-ssl-cert.sh](ssl/generate-ssl-cert.sh) `-e raspberry` (CN/SAN `raspberry01`).
-2. **Configuration**: asks for `REACT_APP_KEYCLOAK_URL`, `REACT_APP_KEYCLOAK_REALM`, `REACT_APP_KEYCLOAK_CLIENT_ID`, `REACT_APP_RESTAURANTS_URL` and the optional `KEYCLOAK_PROXY_TARGET` (defaults from your local `.env`), and warns about values pointing at `localhost`. These values end up in the JavaScript bundle and are public: never put secrets in them.
+2. **Configuration**: asks for `REACT_APP_KEYCLOAK_URL`, `REACT_APP_KEYCLOAK_REALM`, `REACT_APP_KEYCLOAK_CLIENT_ID`, `REACT_APP_RESTAURANTS_URL` (defaults from your local `.env`), asks again for `REACT_APP_KEYCLOAK_URL` if it is relative (e.g. `/keycloak`, which `server.js` would refuse), and warns about values pointing at `localhost`. These values end up in the JavaScript bundle and are public: never put secrets in them.
 3. **Build**: runs `npm ci && npm run build` locally with those values (they override `.env`). The Pi never builds the app.
 4. **Playbook**: asks for the `pi` sudo password (`BECOME password`), then runs [windfire-ui-react-deploy.yaml](deployment/raspberry/windfire-ui-react-deploy.yaml) (or [windfire-ui-react-full-deploy.yaml](deployment/raspberry/windfire-ui-react-full-deploy.yaml) with `--full`, which first runs `apt` update/dist-upgrade and installs Node.js `22.x` from NodeSource), configured via **[conf/config.yaml](deployment/raspberry/conf/config.yaml)**:
    1. checks that Node.js 18 or later is installed on the Pi, and stops the `windfire-ui-react` service
    2. removes and recreates `/home/pi/windfire-ui-react`, and copies only `build/`, `server.js`, `package.json` and `package-lock.json`
-   3. builds `.env` from [windfire-ui-react.env.j2](deployment/raspberry/templates/windfire-ui-react.env.j2) (port, TLS paths, the two URLs used for the CSP `connect-src`, optional proxy target; mode `0600`)
+   3. builds `.env` from [windfire-ui-react.env.j2](deployment/raspberry/templates/windfire-ui-react.env.j2) (port, TLS paths, the two URLs used for the CSP `connect-src`; mode `0600`)
    4. copies the server certificate (`0644`) and key (`0600`) to `ssl/`, and the Windfire Root CA to `/home/pi/opt/windfire/ssl/truststore`
-   5. runs `npm ci --omit=dev` (only `express`, `helmet`, `http-proxy-middleware` and `dotenv` are installed)
+   5. runs `npm ci --omit=dev` (only `express`, `helmet` and `dotenv` are installed)
 5. **systemd**: installs the unit from [windfire-ui-react.service.j2](deployment/raspberry/templates/windfire-ui-react.service.j2), then enables and starts the service. systemd restarts it 5 seconds after a failure and starts it at boot. Logs go to `/home/pi/windfire-ui-react/logs/windfire-ui-react.log`.
 6. **Health check**: waits for port 9443 and calls `https://raspberry01:9443/`, checking the certificate against the Windfire Root CA. If the check fails, it prints the last 50 lines of the journal and of the service log, and the deploy fails.
 
