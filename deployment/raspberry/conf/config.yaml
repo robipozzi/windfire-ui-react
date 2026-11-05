@@ -8,8 +8,9 @@ remote_home_dir: /home/pi
 remote_ssl_dir: "{{ remote_home_dir }}/opt/windfire/ssl"
 remote_truststore_dir: "{{ remote_ssl_dir }}/truststore"
 windfire_ca_root_certificate: "WindfireRootCA.crt"
-windfire_server_certificate: "windfire-ui-react.crt"
-windfire_server_key: "windfire-ui-react.key"
+# Exported by deploy.sh, which asks for the filenames; the fallbacks match the defaults in commons.sh
+windfire_server_certificate: "{{ lookup('env', 'WINDFIRE_SERVER_CERTIFICATE') | default('windfire-ui.crt', true) }}"
+windfire_server_key: "{{ lookup('env', 'WINDFIRE_SERVER_KEY') | default('windfire-ui.key', true) }}"
 local_windfire_ui_react_dir: "{{ playbook_dir }}/../.."
 remote_windfire_ui_react_dir: "{{ remote_home_dir }}/windfire-ui-react"
 # Node.js runtime: installed from NodeSource by windfire-ui-react-full-deploy.yaml, checked by every deploy

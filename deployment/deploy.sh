@@ -81,6 +81,7 @@ deployToRaspberry()
     echo
     checkPrerequisites
     checkRootCA
+    collectCertificateNames
     checkSSLCertificates
     collectAppConfig
     buildApp
@@ -165,6 +166,17 @@ inputWithDefault()
         fi
     done
     echo "$value"
+}
+
+collectCertificateNames()
+{
+    printBanner "Collect SSL certificate filenames"
+    WINDFIRE_SERVER_CERTIFICATE=$(inputWithDefault "server certificate filename" "$WINDFIRE_SERVER_CERTIFICATE")
+    WINDFIRE_SERVER_KEY=$(inputWithDefault "server private key filename" "$WINDFIRE_SERVER_KEY")
+    validateCertFileNames "$WINDFIRE_SERVER_CERTIFICATE" "$WINDFIRE_SERVER_KEY" || exit 1
+    # Read by conf/config.yaml, so the playbook deploys the same files
+    export WINDFIRE_SERVER_CERTIFICATE WINDFIRE_SERVER_KEY
+    echo
 }
 
 warnIfLocalhost()
@@ -262,10 +274,11 @@ printHelp() {
     echo -e "${BOLD}WHAT THIS SCRIPT DOES:${NC}"
     echo -e "1. Check that ansible-playbook, npm and the Ansible SSH key are available"
     echo -e "2. Check that the Windfire Root CA exists"
-    echo -e "3. Check the production server certificate and key (generated if missing)"
-    echo -e "4. Ask for the Keycloak and Restaurants API settings (defaults from .env)"
-    echo -e "5. Build the React application with those settings (npm ci && npm run build)"
-    echo -e "6. Run the Ansible playbook (asks for the sudo password of user pi on the Raspberry):"
+    echo -e "3. Ask for the server certificate and key filenames (defaults: $WINDFIRE_SERVER_CERTIFICATE, $WINDFIRE_SERVER_KEY)"
+    echo -e "4. Check the production server certificate and key (generated if missing)"
+    echo -e "5. Ask for the Keycloak and Restaurants API settings (defaults from .env)"
+    echo -e "6. Build the React application with those settings (npm ci && npm run build)"
+    echo -e "7. Run the Ansible playbook (asks for the sudo password of user pi on the Raspberry):"
     echo -e "   deploy, start the systemd service and health-check it"
     echo
     echo -e "${BOLD}EXIT CODES:${NC}"

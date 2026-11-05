@@ -110,8 +110,8 @@ const createApp = ({ env = process.env, buildDir = path.join(__dirname, 'build')
 // Startup: HTTPS server + optional HTTP -> HTTPS redirect
 // ---------------------------------------------------------------------------
 const main = () => {
-  const SSL_KEY_FILE  = process.env.SSL_KEY_FILE       || path.join(__dirname, 'ssl', 'key.pem');
-  const SSL_CRT_FILE  = process.env.SSL_CRT_FILE       || path.join(__dirname, 'ssl', 'cert.pem');
+  const SSL_KEY_FILE  = process.env.SSL_KEY_FILE       || path.join(__dirname, 'ssl', 'windfire-ui.key');
+  const SSL_CRT_FILE  = process.env.SSL_CRT_FILE       || path.join(__dirname, 'ssl', 'windfire-ui.crt');
   const PORT          = parseInt(process.env.PORT      || '443', 10);
   const HTTP_PORT     = parseInt(process.env.HTTP_PORT || '80',  10);
   const HTTP_REDIRECT = process.env.HTTP_REDIRECT !== 'false';

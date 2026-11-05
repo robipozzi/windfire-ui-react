@@ -32,8 +32,8 @@ DEPLOY_PLATFORM=
 DEPLOY_FUNCTION=
 # Repository root (resolved from this file, so it works whatever the caller's working directory is)
 WINDFIRE_UI_REACT_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WINDFIRE_SERVER_CERTIFICATE=windfire-ui-react.crt
-WINDFIRE_SERVER_KEY=windfire-ui-react.key
+WINDFIRE_SERVER_CERTIFICATE=windfire-ui.crt
+WINDFIRE_SERVER_KEY=windfire-ui.key
 ANSIBLE_SSH_KEY=$HOME/.ssh/ansible_rsa
 
 # ===== ROOT CA VARIABLES =====
@@ -56,6 +56,25 @@ getEnvFileValue()
     value=${value#[\"\']}
     value=${value%[\"\']}
     echo "$value"
+}
+
+# Function to validate certificate and key filenames: both are created inside a fixed output directory
+validateCertFileNames()
+{
+    local certName=$1
+    local keyName=$2
+    if [[ -z "$certName" || -z "$keyName" ]]; then
+        echo -e "${RED}Error: certificate and key filenames cannot be blank${NC}" >&2
+        return 1
+    fi
+    if [[ "$certName" == */* || "$keyName" == */* ]]; then
+        echo -e "${RED}Error: certificate and key must be filenames, not paths: '$certName', '$keyName'${NC}" >&2
+        return 1
+    fi
+    if [[ "$certName" == "$keyName" ]]; then
+        echo -e "${RED}Error: certificate and key cannot share the filename '$certName'${NC}" >&2
+        return 1
+    fi
 }
 
 # Functions to select and set deployment platform

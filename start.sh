@@ -14,7 +14,8 @@ show_help() {
   echo -e "${BOLD}  -h, --help  Show this help message and exit${NC}"
   echo ""
   echo -e "${BOLD}Default (no options): build the app and start the production HTTPS server.${NC}"
-  echo -e "${BOLD}  SSL certificates are auto-generated if ssl/windfire-key.pem or ssl/windfire-cert.pem are missing.${NC}"
+  echo -e "${BOLD}  SSL certificates are auto-generated if the SSL_KEY_FILE or SSL_CRT_FILE files are missing${NC}"
+  echo -e "${BOLD}  (default: ssl/windfire-ui.key and ssl/windfire-ui.crt).${NC}"
 }
 
 DEV_MODE=false
@@ -38,10 +39,16 @@ if [ "$DEV_MODE" = "true" ]; then
   echo -e "${WHITE}    HTTPS will be enabled if HTTPS=true, SSL_CRT_FILE, and SSL_KEY_FILE are set in .env${NC}"
   npm start
 else
+  # Same precedence as server.js: shell environment, then .env, then the default filenames
+  SSL_KEY_FILE="${SSL_KEY_FILE:-$(getEnvFileValue .env SSL_KEY_FILE)}"
+  SSL_KEY_FILE="${SSL_KEY_FILE:-ssl/$WINDFIRE_SERVER_KEY}"
+  SSL_CRT_FILE="${SSL_CRT_FILE:-$(getEnvFileValue .env SSL_CRT_FILE)}"
+  SSL_CRT_FILE="${SSL_CRT_FILE:-ssl/$WINDFIRE_SERVER_CERTIFICATE}"
+
   # Ensure SSL certificates exist before building
-  if [ ! -f "ssl/windfire-key.pem" ] || [ ! -f "ssl/windfire-cert.pem" ]; then
-    echo -e "${YELLOW}==> SSL certificates not found, generating self-signed certificates...${NC}"
-    bash ssl/generate-ssl-cert.sh -e localhost
+  if [ ! -f "$SSL_KEY_FILE" ] || [ ! -f "$SSL_CRT_FILE" ]; then
+    echo -e "${YELLOW}==> SSL certificates not found, generating certificates signed by the Windfire Root CA...${NC}"
+    bash ssl/generate-ssl-cert.sh -e localhost -c "$(basename "$SSL_CRT_FILE")" -k "$(basename "$SSL_KEY_FILE")"
   else
     echo -e "${GREEN}==> SSL certificates found.${NC}"
   fi
@@ -50,7 +57,7 @@ else
   npm run build
 
   echo -e "${YELLOW}==> Starting production HTTPS server...${NC}"
-  echo -e "${WHITE}    SSL_KEY_FILE=${SSL_KEY_FILE:-ssl/windfire-key.pem}${NC}"
-  echo -e "${WHITE}    SSL_CRT_FILE=${SSL_CRT_FILE:-ssl/windfire-cert.pem}${NC}"
+  echo -e "${WHITE}    SSL_KEY_FILE=${SSL_KEY_FILE}${NC}"
+  echo -e "${WHITE}    SSL_CRT_FILE=${SSL_CRT_FILE}${NC}"
   npm run serve
 fi

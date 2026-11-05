@@ -51,8 +51,8 @@ windfire-ui-react/
 │   └── index.js                  # React entry point
 ├── ssl/
 │   ├── generate-ssl-cert.sh       # Issues a key + certificate signed by the Windfire Root CA
-│   ├── windfire-key.pem           # TLS private key (not committed — see .gitignore)
-│   └── windfire-cert.pem          # TLS certificate (not committed — see .gitignore)
+│   ├── windfire-ui.key            # TLS private key, default name (not committed — see .gitignore)
+│   └── windfire-ui.crt            # TLS certificate, default name (not committed — see .gitignore)
 ├── server.js                     # Production HTTPS server (Express + Node https), security headers (helmet: CSP, HSTS, nosniff, Referrer-Policy, COOP; Permissions-Policy), cache headers
 ├── start.sh                      # Build/run helper script (production or --dev mode)
 ├── commons.sh                    # Shared colors, variables and functions sourced by the shell scripts
@@ -209,7 +209,7 @@ SSL key and certificate files are stored in the `ssl/` directory (excluded from 
 bash ssl/generate-ssl-cert.sh
 ```
 
-This creates `ssl/windfire-key.pem` (RSA 4096-bit private key) and `ssl/windfire-cert.pem` (valid 365 days, CN=localhost), signed by the Windfire Root CA. Existing files with the same names are deleted and regenerated.
+In an interactive terminal, the script asks for the environment and for the certificate and key filenames; press Enter to accept the defaults. By default this creates `ssl/windfire-ui.key` (RSA 4096-bit private key) and `ssl/windfire-ui.crt` (valid 365 days, CN=localhost), signed by the Windfire Root CA. Without a terminal, it uses the defaults unless flags are passed. If you choose other filenames for `localhost`, set `SSL_KEY_FILE` and `SSL_CRT_FILE` in `.env` to match. Existing files with the same names are deleted and regenerated.
 
 **Prerequisite:** the Windfire Root CA must already exist. Run `windfire-security/ssl/createRootCA.sh` first if `~/opt/windfire/ssl/truststore/WindfireRootCA.crt` / `~/opt/windfire/ssl/keystore/WindfireRootCA.key` aren't present yet. Since the Root CA key is passphrase-protected, `generate-ssl-cert.sh` will prompt for it while signing.
 
@@ -218,21 +218,21 @@ Flags (all optional):
 | Flag | Description | Default |
 |---|---|---|
 | `-e, --env <localhost\|raspberry>` | Target environment (CN/SAN) | `localhost` |
-| `-c, --cert-name <file>` | Output certificate filename | `windfire-cert.pem` |
-| `-k, --key-name <file>` | Output private key filename | `windfire-key.pem` |
+| `-c, --cert-name <file>` | Output certificate filename (prompted if omitted in a terminal) | `windfire-ui.crt` |
+| `-k, --key-name <file>` | Output private key filename (prompted if omitted in a terminal) | `windfire-ui.key` |
 | `-a, --ca-name <file>` | Windfire Root CA certificate filename (in the truststore) | `WindfireRootCA.crt` |
 | `-h, --help` | Display usage | — |
 
 ```bash
 # Production cert for raspberry01 (written to ~/opt/windfire/ssl/certs/raspberry)
-bash ssl/generate-ssl-cert.sh -e raspberry -c windfire-ui-react.crt -k windfire-ui-react.key
+bash ssl/generate-ssl-cert.sh -e raspberry -c windfire-ui.crt -k windfire-ui.key
 ```
 
 `deployment/deploy.sh` runs this command for you when the certificate is missing (see [Deployment](#deployment)).
 
 > **The Windfire Root CA is not in the system/browser trust store by default.** It must be trusted separately by any client connecting to this server over HTTPS.
 
-`start.sh` calls `ssl/generate-ssl-cert.sh -e localhost` automatically (in production mode) if `ssl/windfire-key.pem` or `ssl/windfire-cert.pem` is not found before the build starts.
+`start.sh` calls `ssl/generate-ssl-cert.sh -e localhost` automatically (in production mode) if the files named by `SSL_KEY_FILE` or `SSL_CRT_FILE` (default `ssl/windfire-ui.key` and `ssl/windfire-ui.crt`) are not found before the build starts. It passes those filenames to the script, so it does not prompt for them, and the script writes them to `ssl/`.
 
 ### Production Mode (default)
 
@@ -253,8 +253,8 @@ bash ssl/generate-ssl-cert.sh -e raspberry -c windfire-ui-react.crt -k windfire-
 
 ```
 HTTPS=true
-SSL_KEY_FILE=ssl/windfire-key.pem
-SSL_CRT_FILE=ssl/windfire-cert.pem
+SSL_KEY_FILE=ssl/windfire-ui.key
+SSL_CRT_FILE=ssl/windfire-ui.crt
 ```
 
 Then run:
@@ -269,13 +269,13 @@ The dev server will be available at `https://localhost:3000`.
 
 | Variable | Default | Description |
 |---|---|---|
-| `SSL_KEY_FILE` | `ssl/key.pem`* | Path to TLS private key file |
-| `SSL_CRT_FILE` | `ssl/cert.pem`* | Path to TLS certificate file |
+| `SSL_KEY_FILE` | `ssl/windfire-ui.key`* | Path to TLS private key file |
+| `SSL_CRT_FILE` | `ssl/windfire-ui.crt`* | Path to TLS certificate file |
 | `PORT` | `443` | HTTPS server port |
 | `HTTP_PORT` | `80` | HTTP redirect server port |
 | `HTTP_REDIRECT` | `true` | Set to `false` to disable HTTP→HTTPS redirect |
 
-\* These are `server.js`'s built-in fallbacks if the variables are unset. In practice, always set `SSL_KEY_FILE`/`SSL_CRT_FILE` explicitly in `.env` (as `.env_PLACEHOLDER` does) to `ssl/windfire-key.pem` / `ssl/windfire-cert.pem`, matching the filenames produced by `ssl/generate-ssl-cert.sh` and checked by `start.sh`.
+\* These are `server.js`'s built-in fallbacks if the variables are unset. In practice, always set `SSL_KEY_FILE`/`SSL_CRT_FILE` explicitly in `.env` (as `.env_PLACEHOLDER` does) to `ssl/windfire-ui.key` / `ssl/windfire-ui.crt`, matching the default filenames produced by `ssl/generate-ssl-cert.sh`. `start.sh` checks whichever files these variables name.
 
 ### Security Headers
 
@@ -378,7 +378,7 @@ Run `deploy.sh --full` the first time (raspberry01 has no Node.js yet); later de
 * a local `.env` (copy `.env_PLACEHOLDER`): its values are offered as defaults
 
 ### What `deploy.sh` does
-1. **Pre-flight checks**: checks for `ansible-playbook`, `npm`, the SSH key and the Windfire Root CA, and stops with a red error if one is missing. If `windfire-ui-react.crt` / `.key` are missing from `$HOME/opt/windfire/ssl/certs/raspberry`, it runs [generate-ssl-cert.sh](ssl/generate-ssl-cert.sh) `-e raspberry` (CN/SAN `raspberry01`).
+1. **Pre-flight checks**: checks for `ansible-playbook`, `npm`, the SSH key and the Windfire Root CA, and stops with a red error if one is missing. It then asks for the server certificate and key filenames (defaults `windfire-ui.crt` / `windfire-ui.key`). If those files are missing from `$HOME/opt/windfire/ssl/certs/raspberry`, it runs [generate-ssl-cert.sh](ssl/generate-ssl-cert.sh) `-e raspberry` (CN/SAN `raspberry01`).
 2. **Configuration**: asks for `REACT_APP_KEYCLOAK_URL`, `REACT_APP_KEYCLOAK_REALM`, `REACT_APP_KEYCLOAK_CLIENT_ID`, `REACT_APP_RESTAURANTS_URL` (defaults from your local `.env`; the Restaurants URL defaults to `https://raspberry02:8081/restaurants` when `.env` has no value or a localhost one), asks again for `REACT_APP_KEYCLOAK_URL` if it is relative (e.g. `/keycloak`, which `server.js` would refuse), and warns about values pointing at `localhost`. These values end up in the JavaScript bundle and are public: never put secrets in them.
 3. **Build**: runs `npm ci && npm run build` locally with those values (they override `.env`). The Pi never builds the app.
 4. **Playbook**: asks for the `pi` sudo password (`BECOME password`), then runs [windfire-ui-react-deploy.yaml](deployment/raspberry/windfire-ui-react-deploy.yaml) (or [windfire-ui-react-full-deploy.yaml](deployment/raspberry/windfire-ui-react-full-deploy.yaml) with `--full`, which first runs `apt` update/dist-upgrade and installs Node.js `22.x` from NodeSource), configured via **[conf/config.yaml](deployment/raspberry/conf/config.yaml)**:

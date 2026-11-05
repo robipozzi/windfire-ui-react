@@ -6,16 +6,17 @@
 # Issues a TLS private key + leaf certificate signed by the Windfire Root CA
 # (see windfire-security/ssl/createRootCA.sh), for use by this app's HTTPS
 # server. Selectable by environment (localhost / raspberry), with
-# configurable output filenames.
+# configurable output filenames: pass -c / -k, or answer the prompts when
+# running in an interactive terminal.
 #
 # Output files:
 #   localhost   — written to the same directory as this script
 #   raspberry   — written to $HOME/opt/windfire/ssl/certs/raspberry
 #                 (never touches files under this script's directory)
 #
-#   windfire-key.pem  — RSA 4096-bit private key
-#   windfire-cert.pem — X.509 certificate signed by the Windfire Root CA
-#                        (valid 365 days)
+#   windfire-ui.key — RSA 4096-bit private key (default filename)
+#   windfire-ui.crt — X.509 certificate signed by the Windfire Root CA,
+#                     valid 365 days (default filename)
 #
 # NOTE: The Windfire Root CA is not in the system/browser trust store by
 #       default — it must be trusted separately by any client connecting
@@ -32,8 +33,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ===== DEFAULT VALUES =====
 ENVIRONMENT="localhost"
 ENV_EXPLICIT=false
-CERT_NAME="windfire-cert.pem"
-KEY_NAME="windfire-key.pem"
+CERT_NAME="$WINDFIRE_SERVER_CERTIFICATE"
+CERT_NAME_EXPLICIT=false
+KEY_NAME="$WINDFIRE_SERVER_KEY"
+KEY_NAME_EXPLICIT=false
 CA_NAME="WindfireRootCA.crt"
 
 ROOT_CA_TRUSTSTORE_DIR="$HOME/opt/windfire/ssl/truststore"
@@ -50,10 +53,12 @@ parse_args() {
                 ;;
             -c|--cert-name)
                 CERT_NAME="$2"
+                CERT_NAME_EXPLICIT=true
                 shift 2
                 ;;
             -k|--key-name)
                 KEY_NAME="$2"
+                KEY_NAME_EXPLICIT=true
                 shift 2
                 ;;
             -a|--ca-name)
@@ -93,10 +98,14 @@ print_help() {
     echo -e "                                       you'll be prompted to choose."
     echo
     echo -e "    -c, --cert-name <file>            Output certificate filename"
-    echo -e "                                       Default: windfire-cert.pem"
+    echo -e "                                       Default: $WINDFIRE_SERVER_CERTIFICATE"
+    echo -e "                                       If omitted in an interactive terminal,"
+    echo -e "                                       you'll be prompted for it."
     echo
     echo -e "    -k, --key-name <file>             Output private key filename"
-    echo -e "                                       Default: windfire-key.pem"
+    echo -e "                                       Default: $WINDFIRE_SERVER_KEY"
+    echo -e "                                       If omitted in an interactive terminal,"
+    echo -e "                                       you'll be prompted for it."
     echo
     echo -e "    -a, --ca-name <file>              Windfire Root CA certificate filename"
     echo -e "                                       (looked up in the truststore)"
@@ -105,11 +114,11 @@ print_help() {
     echo -e "    -h, --help                        Display this help message and exit"
     echo
     echo -e "${BOLD}EXAMPLES:${NC}"
-    echo -e "    # Generate a localhost cert with default filenames"
+    echo -e "    # Prompt for the environment and filenames (Enter accepts the defaults)"
     echo -e "    ./generate-ssl-cert.sh"
     echo
     echo -e "    # Generate a raspberry01 cert with custom filenames"
-    echo -e "    ./generate-ssl-cert.sh -e raspberry -c raspberry-cert.pem -k raspberry-key.pem"
+    echo -e "    ./generate-ssl-cert.sh -e raspberry -c raspberry.crt -k raspberry.key"
     echo
     echo -e "${BOLD}PREREQUISITES:${NC}"
     echo -e "    The Windfire Root CA must already exist (run"
@@ -138,6 +147,19 @@ prompt_environment() {
                 ;;
         esac
     done
+}
+
+# ===== FILENAME PROMPT FUNCTION =====
+prompt_file_names() {
+    local value
+    if [ "$CERT_NAME_EXPLICIT" = false ]; then
+        read -r -p "Certificate filename [$CERT_NAME]: " value
+        CERT_NAME="${value:-$CERT_NAME}"
+    fi
+    if [ "$KEY_NAME_EXPLICIT" = false ]; then
+        read -r -p "Private key filename [$KEY_NAME]: " value
+        KEY_NAME="${value:-$KEY_NAME}"
+    fi
 }
 
 # ===== ENVIRONMENT RESOLUTION FUNCTION =====
@@ -225,9 +247,14 @@ generate_certificate() {
 main() {
     parse_args "$@"
 
-    if [ "$ENV_EXPLICIT" = false ] && [ -t 0 ]; then
-        prompt_environment
+    if [ -t 0 ]; then
+        if [ "$ENV_EXPLICIT" = false ]; then
+            prompt_environment
+        fi
+        prompt_file_names
     fi
+
+    validateCertFileNames "$CERT_NAME" "$KEY_NAME" || exit 1
 
     resolve_environment
 
@@ -248,6 +275,12 @@ main() {
     echo -e "${WHITE}    CN / SAN    : $COMMON_NAME${NC}"
     echo -e "${WHITE}    Signed by   : $ROOT_CA_CERT_PATH${NC}"
     echo ""
+    if [ "$ENVIRONMENT" = "localhost" ]; then
+        echo -e "${WHITE}    The server reads these filenames from .env:${NC}"
+        echo -e "${WHITE}      SSL_KEY_FILE=ssl/$KEY_NAME${NC}"
+        echo -e "${WHITE}      SSL_CRT_FILE=ssl/$CERT_NAME${NC}"
+        echo ""
+    fi
     echo -e "${WHITE}    The Windfire Root CA is not in the system trust store by default —${NC}"
     echo -e "${WHITE}    it must be trusted separately by any client connecting over HTTPS.${NC}"
 }
