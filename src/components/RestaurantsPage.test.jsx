@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { AuthProvider } from '../auth/AuthContext';
 import RestaurantsPage from './RestaurantsPage';
@@ -28,7 +29,7 @@ async function renderPage() {
 
 beforeEach(() => {
   sessionStorage.clear();
-  jest.spyOn(global, 'fetch').mockImplementation(() => Promise.resolve({
+  vi.spyOn(global, 'fetch').mockImplementation(() => Promise.resolve({
     ok: true,
     status: 200,
     json: () => Promise.resolve([RESTAURANT]),
@@ -36,7 +37,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 test('writers see Add, the Actions column and Delete', async () => {

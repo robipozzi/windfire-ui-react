@@ -1,6 +1,6 @@
-const KEYCLOAK_URL = process.env.REACT_APP_KEYCLOAK_URL;
-const REALM = process.env.REACT_APP_KEYCLOAK_REALM;
-const CLIENT_ID = process.env.REACT_APP_KEYCLOAK_CLIENT_ID;
+const KEYCLOAK_URL = import.meta.env.VITE_KEYCLOAK_URL;
+const REALM = import.meta.env.VITE_KEYCLOAK_REALM;
+const CLIENT_ID = import.meta.env.VITE_KEYCLOAK_CLIENT_ID;
 
 const tokenUrl = () =>
   `${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token`;

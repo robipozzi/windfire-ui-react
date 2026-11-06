@@ -6,10 +6,10 @@
   vars:
     src_dir: "{{ playbook_dir }}"
     mode: u=rwx
-    react_app_keycloak_url: "{{ lookup('env', 'REACT_APP_KEYCLOAK_URL') }}"
-    react_app_keycloak_realm: "{{ lookup('env', 'REACT_APP_KEYCLOAK_REALM') }}"
-    react_app_keycloak_client_id: "{{ lookup('env', 'REACT_APP_KEYCLOAK_CLIENT_ID') }}"
-    react_app_restaurants_url: "{{ lookup('env', 'REACT_APP_RESTAURANTS_URL') | default('https://raspberry02:8081/restaurants', true) }}"
+    vite_keycloak_url: "{{ lookup('env', 'VITE_KEYCLOAK_URL') }}"
+    vite_keycloak_realm: "{{ lookup('env', 'VITE_KEYCLOAK_REALM') }}"
+    vite_keycloak_client_id: "{{ lookup('env', 'VITE_KEYCLOAK_CLIENT_ID') }}"
+    vite_restaurants_url: "{{ lookup('env', 'VITE_RESTAURANTS_URL') | default('https://raspberry02:8081/restaurants', true) }}"
   vars_files:
     - "{{ src_dir }}/conf/config.yaml"
   tasks:

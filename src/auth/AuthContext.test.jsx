@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth, SessionExpiredError, hasClientRole } from './AuthContext';
 
@@ -39,11 +40,11 @@ function renderWithAuth() {
 
 beforeEach(() => {
   sessionStorage.clear();
-  jest.spyOn(global, 'fetch');
+  vi.spyOn(global, 'fetch');
 });
 
 afterEach(() => {
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 test('refreshes an expired access token before calling the API', async () => {

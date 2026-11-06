@@ -1,5 +1,5 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 'use strict';
 
@@ -11,8 +11,8 @@ const { createApp, validateConfig } = require('../server');
 
 const INDEX_MARKER = '<!doctype html><title>windfire-spa-index</title>';
 const ENV = {
-  REACT_APP_KEYCLOAK_URL:    'https://kc.example:8443',
-  REACT_APP_RESTAURANTS_URL: 'https://api.example',
+  VITE_KEYCLOAK_URL:    'https://kc.example:8443',
+  VITE_RESTAURANTS_URL: 'https://api.example',
 };
 
 let buildDir;
@@ -21,8 +21,8 @@ let app;
 beforeAll(() => {
   buildDir = fs.mkdtempSync(path.join(os.tmpdir(), 'windfire-build-'));
   fs.writeFileSync(path.join(buildDir, 'index.html'), INDEX_MARKER);
-  fs.mkdirSync(path.join(buildDir, 'static', 'js'), { recursive: true });
-  fs.writeFileSync(path.join(buildDir, 'static', 'js', 'main.abc123.js'), 'console.log("ok");');
+  fs.mkdirSync(path.join(buildDir, 'assets'), { recursive: true });
+  fs.writeFileSync(path.join(buildDir, 'assets', 'index-abc123.js'), 'console.log("ok");');
   app = createApp({ env: ENV, buildDir });
 });
 
@@ -60,14 +60,14 @@ describe('server.js', () => {
   });
 
   test('hashed static assets get a long max-age', async () => {
-    const res = await request(app).get('/static/js/main.abc123.js');
+    const res = await request(app).get('/assets/index-abc123.js');
 
     expect(res.status).toBe(200);
     expect(res.headers['cache-control']).toBe('public, max-age=31536000, immutable');
   });
 
-  test('a relative REACT_APP_KEYCLOAK_URL fails fast and points to .env', () => {
-    const env = { ...ENV, REACT_APP_KEYCLOAK_URL: '/keycloak' };
+  test('a relative VITE_KEYCLOAK_URL fails fast and points to .env', () => {
+    const env = { ...ENV, VITE_KEYCLOAK_URL: '/keycloak' };
     expect(() => validateConfig(env)).toThrow(/\.env/);
     expect(() => createApp({ env, buildDir })).toThrow(/\.env/);
   });

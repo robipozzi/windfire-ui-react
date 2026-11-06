@@ -193,24 +193,24 @@ collectAppConfig()
     printBanner "Collect application configuration"
     echo -e "${WHITE}These values are bundled into the React build and are public: do not use secrets here${NC}"
     local envFile=../.env
-    REACT_APP_KEYCLOAK_URL=$(inputWithDefault "Keycloak URL (REACT_APP_KEYCLOAK_URL)" "$(getEnvFileValue $envFile REACT_APP_KEYCLOAK_URL)")
+    VITE_KEYCLOAK_URL=$(inputWithDefault "Keycloak URL (VITE_KEYCLOAK_URL)" "$(getEnvFileValue $envFile VITE_KEYCLOAK_URL)")
     # server.js refuses to start with a relative Keycloak URL (left over from the removed /keycloak proxy)
-    while [[ "$REACT_APP_KEYCLOAK_URL" == /* ]]; do
-        echo -e "${RED}REACT_APP_KEYCLOAK_URL=$REACT_APP_KEYCLOAK_URL is relative: the /keycloak proxy has been removed. Enter the absolute https:// URL of Keycloak (and fix it in .env)${NC}"
-        REACT_APP_KEYCLOAK_URL=$(inputWithDefault "Keycloak URL (REACT_APP_KEYCLOAK_URL)" "")
+    while [[ "$VITE_KEYCLOAK_URL" == /* ]]; do
+        echo -e "${RED}VITE_KEYCLOAK_URL=$VITE_KEYCLOAK_URL is relative: the /keycloak proxy has been removed. Enter the absolute https:// URL of Keycloak (and fix it in .env)${NC}"
+        VITE_KEYCLOAK_URL=$(inputWithDefault "Keycloak URL (VITE_KEYCLOAK_URL)" "")
     done
-    REACT_APP_KEYCLOAK_REALM=$(inputWithDefault "Keycloak realm (REACT_APP_KEYCLOAK_REALM)" "$(getEnvFileValue $envFile REACT_APP_KEYCLOAK_REALM)")
-    REACT_APP_KEYCLOAK_CLIENT_ID=$(inputWithDefault "Keycloak client id (REACT_APP_KEYCLOAK_CLIENT_ID)" "$(getEnvFileValue $envFile REACT_APP_KEYCLOAK_CLIENT_ID)")
+    VITE_KEYCLOAK_REALM=$(inputWithDefault "Keycloak realm (VITE_KEYCLOAK_REALM)" "$(getEnvFileValue $envFile VITE_KEYCLOAK_REALM)")
+    VITE_KEYCLOAK_CLIENT_ID=$(inputWithDefault "Keycloak client id (VITE_KEYCLOAK_CLIENT_ID)" "$(getEnvFileValue $envFile VITE_KEYCLOAK_CLIENT_ID)")
     # The local .env usually holds the dev value (localhost): offer the Raspberry backend instead
     local restaurantsDefault
-    restaurantsDefault=$(getEnvFileValue $envFile REACT_APP_RESTAURANTS_URL)
+    restaurantsDefault=$(getEnvFileValue $envFile VITE_RESTAURANTS_URL)
     if [[ -z "$restaurantsDefault" || "$restaurantsDefault" == *localhost* || "$restaurantsDefault" == *127.0.0.1* ]]; then
         restaurantsDefault=$DEFAULT_RESTAURANTS_URL
     fi
-    REACT_APP_RESTAURANTS_URL=$(inputWithDefault "Restaurants API URL (REACT_APP_RESTAURANTS_URL)" "$restaurantsDefault")
-    warnIfLocalhost REACT_APP_KEYCLOAK_URL "$REACT_APP_KEYCLOAK_URL"
-    warnIfLocalhost REACT_APP_RESTAURANTS_URL "$REACT_APP_RESTAURANTS_URL"
-    export REACT_APP_KEYCLOAK_URL REACT_APP_KEYCLOAK_REALM REACT_APP_KEYCLOAK_CLIENT_ID REACT_APP_RESTAURANTS_URL
+    VITE_RESTAURANTS_URL=$(inputWithDefault "Restaurants API URL (VITE_RESTAURANTS_URL)" "$restaurantsDefault")
+    warnIfLocalhost VITE_KEYCLOAK_URL "$VITE_KEYCLOAK_URL"
+    warnIfLocalhost VITE_RESTAURANTS_URL "$VITE_RESTAURANTS_URL"
+    export VITE_KEYCLOAK_URL VITE_KEYCLOAK_REALM VITE_KEYCLOAK_CLIENT_ID VITE_RESTAURANTS_URL
     echo
 }
 
@@ -218,16 +218,16 @@ collectAppConfig()
 buildApp()
 {
     printBanner "Build React application"
-    # Exported REACT_APP_* variables take precedence over the values in the local .env
+    # Exported VITE_* variables take precedence over the values in the local .env
     if ! (cd .. && npm ci && npm run build); then
         echo -e "${RED}Error: React build failed: see npm output above${NC}"
         exit 1
     fi
-    if [ ! -f ../build/index.html ]; then
-        echo -e "${RED}Error: build/index.html not found after the build${NC}"
+    if [ ! -f ../dist/index.html ]; then
+        echo -e "${RED}Error: dist/index.html not found after the build${NC}"
         exit 1
     fi
-    echo -e "${GREEN}React application built in $WINDFIRE_UI_REACT_HOME/build${NC}"
+    echo -e "${GREEN}React application built in $WINDFIRE_UI_REACT_HOME/dist${NC}"
     echo
 }
 

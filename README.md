@@ -1,7 +1,7 @@
 # Windfire UI
 [![CI](https://github.com/robipozzi/windfire-ui-react/actions/workflows/ci.yml/badge.svg)](https://github.com/robipozzi/windfire-ui-react/actions/workflows/ci.yml)
 
-A browser-based UI for the Windfire application, built with React 18.
+A browser-based UI for the Windfire application, built with React 18 and Vite.
 
 Windfire is designed to integrate different software components in a flexible and future-proof manner. This repository is the web client — one of two UI frontends in the system. It provides a login interface backed by Keycloak authentication and an authenticated dashboard with a top navigation bar, a Restaurants section (list/add/delete backed by a REST API), and a Calendar section (placeholder, coming soon).
 
@@ -27,30 +27,32 @@ graph TD
 | windfire-ui-react | React 18, Browser | Web-based client UI |
 | windfire-ui-ios | Swift / SwiftUI, iPhone | Native mobile client UI |
 | Keycloak | Keycloak Server | Centralized identity and access management |
-| windfire-restaurants-backend | Spring Boot | REST API backing the Restaurants section (`REACT_APP_RESTAURANTS_URL`) |
+| windfire-restaurants-backend | Spring Boot | REST API backing the Restaurants section (`VITE_RESTAURANTS_URL`) |
 
 ### Application Structure
 
 ```
 windfire-ui-react/
 ├── .github/                      # dependabot.yml and the CI workflow (workflows/ci.yml)
-├── public/                       # Static assets (index.html, icons, manifest)
+├── index.html                    # Vite entry page (loads src/index.jsx)
+├── vite.config.mjs               # Vite and Vitest configuration, dev server port and HTTPS
+├── public/                       # Static assets copied as is to dist/ (icons, manifest)
 ├── src/
 │   ├── auth/
 │   │   ├── keycloakService.js      # Keycloak token & logout API calls
-│   │   └── AuthContext.js          # React Context for global auth state
+│   │   └── AuthContext.jsx         # React Context for global auth state
 │   ├── components/
-│   │   ├── LoginForm.js / .css     # Login form (username/password + error display)
-│   │   ├── HomePage.js / .css      # Authenticated shell: renders Header/body/Footer, page routing
-│   │   ├── Header.js / .css        # Top nav bar: logo, Restaurants/Calendar links, user + sign out
-│   │   ├── Footer.js / .css        # Footer bar
-│   │   ├── RestaurantsPage.js / .css  # Restaurants list, add form, delete, detail modal
-│   │   ├── PlaceholderPage.js / .css  # "Coming soon" placeholder (used for Calendar)
-│   │   ├── WindfireLogo.js         # Inline SVG Windfire wordmark/flame logo
-│   │   └── ArchitectureDiagram.js  # Inline SVG system architecture diagram (not currently rendered)
-│   ├── App.js                    # Root component: routes between LoginForm and HomePage
+│   │   ├── LoginForm.jsx / .css    # Login form (username/password + error display)
+│   │   ├── HomePage.jsx / .css     # Authenticated shell: renders Header/body/Footer, page routing
+│   │   ├── Header.jsx / .css       # Top nav bar: logo, Restaurants/Calendar links, user + sign out
+│   │   ├── Footer.jsx / .css       # Footer bar
+│   │   ├── RestaurantsPage.jsx / .css # Restaurants list, add form, delete, detail modal
+│   │   ├── PlaceholderPage.jsx / .css # "Coming soon" placeholder (used for Calendar)
+│   │   ├── WindfireLogo.jsx        # Inline SVG Windfire wordmark/flame logo
+│   │   └── ArchitectureDiagram.jsx # Inline SVG system architecture diagram (not currently rendered)
+│   ├── App.jsx                   # Root component: routes between LoginForm and HomePage
 │   ├── App.css / index.css       # Global styles
-│   └── index.js                  # React entry point
+│   └── index.jsx                 # React entry point
 ├── ssl/
 │   ├── generate-ssl-cert.sh       # Issues a key + certificate signed by the Windfire Root CA
 │   ├── windfire-ui.key            # TLS private key, default name (not committed — see .gitignore)
@@ -87,10 +89,10 @@ This app uses the **OIDC Resource Owner Password Credentials** grant (direct cre
 | Page | Component | Behavior |
 |---|---|---|
 | Home | `WindfireLogo` | Default landing view — just the Windfire logo. |
-| Restaurants | `RestaurantsPage` | Fetches restaurants from `REACT_APP_RESTAURANTS_URL` with the Keycloak access token as a `Bearer` header; supports adding a restaurant (name, address, cuisine, contact info), deleting one (with confirm step), and viewing full details in a modal. User-supplied websites are rendered as links (`target="_blank"`, `rel="noopener noreferrer"`) only when they parse as absolute `http:`/`https:` URLs (`src/utils/safeUrl.js`); anything else, such as `javascript:` or `data:`, is shown as plain text. Emails get a `mailto:` link only when they match a plain address pattern. |
+| Restaurants | `RestaurantsPage` | Fetches restaurants from `VITE_RESTAURANTS_URL` with the Keycloak access token as a `Bearer` header; supports adding a restaurant (name, address, cuisine, contact info), deleting one (with confirm step), and viewing full details in a modal. User-supplied websites are rendered as links (`target="_blank"`, `rel="noopener noreferrer"`) only when they parse as absolute `http:`/`https:` URLs (`src/utils/safeUrl.js`); anything else, such as `javascript:` or `data:`, is shown as plain text. Emails get a `mailto:` link only when they match a plain address pattern. |
 | Calendar | `PlaceholderPage` | "Coming soon" placeholder — not yet implemented. |
 
-The Restaurants section requires a running instance of the `windfire-restaurants-backend` API (or compatible service) reachable at `REACT_APP_RESTAURANTS_URL`, accepting `GET` / `POST` / `DELETE` with a Keycloak-issued bearer token.
+The Restaurants section requires a running instance of the `windfire-restaurants-backend` API (or compatible service) reachable at `VITE_RESTAURANTS_URL`, accepting `GET` / `POST` / `DELETE` with a Keycloak-issued bearer token.
 
 ---
 
@@ -100,7 +102,7 @@ The following configuration must be present in Keycloak before the application c
 
 ### 1. Create a Realm
 
-Create a realm named **`windfire`** (this must match `REACT_APP_KEYCLOAK_REALM` in `.env`).
+Create a realm named **`windfire`** (this must match `VITE_KEYCLOAK_REALM` in `.env`).
 
 ### 2. Create a Client
 
@@ -108,7 +110,7 @@ Inside the `windfire` realm, create a client with the following settings:
 
 | Setting | Value |
 |---|---|
-| Client ID | `windfire` (must match `REACT_APP_KEYCLOAK_CLIENT_ID`) |
+| Client ID | `windfire` (must match `VITE_KEYCLOAK_CLIENT_ID`) |
 | Client type | OpenID Connect |
 | Client authentication | Off (public client — no client secret) |
 | Standard flow | Optional (not used by this app) |
@@ -136,18 +138,18 @@ cp .env_PLACEHOLDER .env
 ```
 
 ```
-REACT_APP_KEYCLOAK_REALM=windfire
-REACT_APP_KEYCLOAK_CLIENT_ID=windfire
-REACT_APP_RESTAURANTS_URL=<restaurants-backend-endpoint>
+VITE_KEYCLOAK_REALM=windfire
+VITE_KEYCLOAK_CLIENT_ID=windfire
+VITE_RESTAURANTS_URL=<restaurants-backend-endpoint>
 ```
 
 Keycloak is served over HTTPS and the browser talks to it directly, so set its absolute URL:
 
 ```
-REACT_APP_KEYCLOAK_URL=<keycloak-https-url>
+VITE_KEYCLOAK_URL=<keycloak-https-url>
 ```
 
-`server.js` refuses to start if `REACT_APP_KEYCLOAK_URL` is relative (for example `/keycloak`, from the old proxy setup, which has been removed).
+`server.js` refuses to start if `VITE_KEYCLOAK_URL` is relative (for example `/keycloak`, from the old proxy setup, which has been removed).
 
 > `.env` is listed in `.gitignore` — do not commit it.
 
@@ -156,7 +158,7 @@ REACT_APP_KEYCLOAK_URL=<keycloak-https-url>
 ## Development
 
 ### Prerequisites
-- Node.js 16+
+- Node.js 22.13+ (needed locally and in CI to build and test; the Raspberry Pi only runs `server.js`)
 - npm 8+
 - A running Keycloak instance configured as described above
 - A running `windfire-restaurants-backend` (or compatible API) if you need the Restaurants page to work
@@ -164,23 +166,18 @@ REACT_APP_KEYCLOAK_URL=<keycloak-https-url>
 
 ### Available Scripts
 
-#### `npm start`
-Runs the app in development mode at [http://localhost:3000](http://localhost:3000).
+#### `npm run dev`
+Runs the Vite dev server at [https://localhost:3000](https://localhost:3000), or over HTTP if the SSL files are missing. `npm start` is an alias.
 
 #### `npm test`
-Launches the test runner in interactive watch mode.
+Runs the test suite once with Vitest.
 
 #### `npm run build`
-Builds the app for production to the `build` folder.
+Builds the app for production to the `dist` folder.
 
 #### `npm run serve`
-Starts the production HTTPS server (`server.js`) to serve the `build` folder.
+Starts the production HTTPS server (`server.js`) to serve the `dist` folder.
 Requires `SSL_KEY_FILE` and `SSL_CRT_FILE` to be set (or defaults in `ssl/`).
-
-#### `npm run eject`
-**Note: this is a one-way operation. Once you eject, you can't go back.**
-
-Exposes the underlying Webpack, Babel and ESLint configuration for full control.
 
 ### `start.sh` helper script
 
@@ -188,7 +185,7 @@ Exposes the underlying Webpack, Babel and ESLint configuration for full control.
 
 ```bash
 ./start.sh              # build + start the production HTTPS server (npm run build && npm run serve)
-./start.sh --dev         # start the dev server (npm start)
+./start.sh --dev         # start the dev server (npm run dev)
 ./start.sh -h            # show usage
 ```
 
@@ -201,7 +198,7 @@ HTTPS is enforced using SSL certificates. The app supports two modes:
 | Mode | Command | Server | Use case |
 |---|---|---|---|
 | Production | `./start.sh` | `server.js` (Node `https` + Express) | Real deployments |
-| Development | `./start.sh --dev` | CRA webpack-dev-server | Local dev with HTTPS |
+| Development | `./start.sh --dev` | Vite dev server | Local dev with HTTPS |
 
 ### SSL Certificate Generation
 
@@ -251,21 +248,15 @@ bash ssl/generate-ssl-cert.sh -e raspberry -c windfire-ui.crt -k windfire-ui.key
 
 ### Development Mode
 
-`./start.sh --dev` starts the CRA webpack-dev-server. To enable HTTPS in dev mode, set the following in your `.env`:
+`./start.sh --dev` starts the Vite dev server. It uses HTTPS automatically when the files named by `SSL_KEY_FILE` and `SSL_CRT_FILE` exist (default `ssl/windfire-ui.key` and `ssl/windfire-ui.crt`). If either is missing, it logs a warning and uses HTTP. Run `ssl/generate-ssl-cert.sh` to create them.
 
-```
-HTTPS=true
-SSL_KEY_FILE=ssl/windfire-ui.key
-SSL_CRT_FILE=ssl/windfire-ui.crt
-```
-
-Then run:
+Run:
 
 ```bash
 ./start.sh --dev
 ```
 
-The dev server will be available at `https://localhost:3000`.
+The dev server will be available at `https://localhost:3000`. The port is fixed, and startup fails if it is taken, because the Keycloak client and the backend CORS configuration expect this origin.
 
 ### SSL Environment Variables
 
@@ -292,9 +283,9 @@ The dev server will be available at `https://localhost:3000`.
 | `Cross-Origin-Opener-Policy` | `same-origin` |
 | `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` |
 
-`X-Powered-By` is disabled. `index.html` (including the SPA fallback for every unknown route) is served with `Cache-Control: no-store`. The content-hashed bundles under `build/static/` are served with `Cache-Control: public, max-age=31536000, immutable`.
+`X-Powered-By` is disabled. `index.html` (including the SPA fallback for every unknown route) is served with `Cache-Control: no-store`. The content-hashed bundles under `dist/assets/` are served with `Cache-Control: public, max-age=31536000, immutable`.
 
-The `connect-src` origins come from `REACT_APP_KEYCLOAK_URL` and `REACT_APP_RESTAURANTS_URL`, which `server.js` reads once at startup. Run the server with the same `.env` used for `npm run build`, and restart it after changing either URL. Otherwise the browser will block the API calls.
+The `connect-src` origins come from `VITE_KEYCLOAK_URL` and `VITE_RESTAURANTS_URL`, which `server.js` reads once at startup. Run the server with the same `.env` used for `npm run build`, and restart it after changing either URL. Otherwise the browser will block the API calls.
 
 ### Keycloak Redirect URI Update for HTTPS
 
@@ -345,9 +336,9 @@ To develop locally, run the Restaurants backend locally as well:
 1. In `windfire-restaurants-backend`, run `./run-windfire-restaurants-backend.sh`. Its default CORS origin is `https://localhost`, where `./start.sh` serves this app. If you use `./start.sh --dev` (port 3000), enter `http://localhost:3000` (or `https://localhost:3000` with dev HTTPS) at the CORS prompt instead.
 2. In `.env`, set:
    ```
-   REACT_APP_RESTAURANTS_URL=https://localhost:8081/restaurants
+   VITE_RESTAURANTS_URL=https://localhost:8081/restaurants
    ```
-3. Start (or restart) the app with `./start.sh`. `REACT_APP_*` values are read only at start or build time.
+3. Start (or restart) the app with `./start.sh`. `VITE_*` values are read only at start or build time.
 
 You can check the preflight on its own:
 ```bash
@@ -367,7 +358,7 @@ Expect `200` with `Access-Control-Allow-Origin: https://localhost`. A `403` mean
 The badge at the top of this page shows the latest [CI workflow](.github/workflows/ci.yml) run on `main`; click it to see all runs. The workflow runs on every pull request and on every push to `main`:
 
 * installs the dependencies from the lock file (`npm ci`), using the same Node.js major version as the Raspberry Pi (`nodejs_version` in [conf/config.yaml](deployment/raspberry/conf/config.yaml))
-* runs the tests (`npm test -- --watchAll=false`)
+* runs the tests (`npm test`)
 * fails on production dependencies with high or critical vulnerabilities (`npm audit --omit=dev --audit-level=high`)
 * on pull requests only, fails if the pull request adds a dependency with a high or critical vulnerability (dependency review)
 
@@ -400,18 +391,18 @@ Run `deploy.sh --full` the first time (raspberry01 has no Node.js yet); later de
 
 ### What `deploy.sh` does
 1. **Pre-flight checks**: checks for `ansible-playbook`, `npm`, the SSH key and the Windfire Root CA, and stops with a red error if one is missing. It then asks for the server certificate and key filenames (defaults `windfire-ui.crt` / `windfire-ui.key`). If those files are missing from `$HOME/opt/windfire/ssl/certs/raspberry`, it runs [generate-ssl-cert.sh](ssl/generate-ssl-cert.sh) `-e raspberry` (CN/SAN `raspberry01`).
-2. **Configuration**: asks for `REACT_APP_KEYCLOAK_URL`, `REACT_APP_KEYCLOAK_REALM`, `REACT_APP_KEYCLOAK_CLIENT_ID`, `REACT_APP_RESTAURANTS_URL` (defaults from your local `.env`; the Restaurants URL defaults to `https://raspberry02:8081/restaurants` when `.env` has no value or a localhost one), asks again for `REACT_APP_KEYCLOAK_URL` if it is relative (e.g. `/keycloak`, which `server.js` would refuse), and warns about values pointing at `localhost`. These values end up in the JavaScript bundle and are public: never put secrets in them.
+2. **Configuration**: asks for `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM`, `VITE_KEYCLOAK_CLIENT_ID`, `VITE_RESTAURANTS_URL` (defaults from your local `.env`; the Restaurants URL defaults to `https://raspberry02:8081/restaurants` when `.env` has no value or a localhost one), asks again for `VITE_KEYCLOAK_URL` if it is relative (e.g. `/keycloak`, which `server.js` would refuse), and warns about values pointing at `localhost`. These values end up in the JavaScript bundle and are public: never put secrets in them.
 3. **Build**: runs `npm ci && npm run build` locally with those values (they override `.env`). The Pi never builds the app.
 4. **Playbook**: asks for the `pi` sudo password (`BECOME password`), then runs [windfire-ui-react-deploy.yaml](deployment/raspberry/windfire-ui-react-deploy.yaml) (or [windfire-ui-react-full-deploy.yaml](deployment/raspberry/windfire-ui-react-full-deploy.yaml) with `--full`, which first runs `apt` update/dist-upgrade and installs Node.js `22.x` from NodeSource), configured via **[conf/config.yaml](deployment/raspberry/conf/config.yaml)**:
    1. checks that Node.js 18 or later is installed on the Pi, and stops the `windfire-ui-react` service
-   2. removes and recreates `/home/pi/windfire-ui-react`, and copies only `build/`, `server.js`, `package.json` and `package-lock.json`
+   2. removes and recreates `/home/pi/windfire-ui-react`, and copies only `dist/`, `server.js`, `package.json` and `package-lock.json`
    3. builds `.env` from [windfire-ui-react.env.j2](deployment/raspberry/templates/windfire-ui-react.env.j2) (port, TLS paths, the two URLs used for the CSP `connect-src`; mode `0600`)
    4. copies the server certificate (`0644`) and key (`0600`) to `ssl/`, and the Windfire Root CA to `/home/pi/opt/windfire/ssl/truststore`
    5. runs `npm ci --omit=dev` (only `express`, `helmet` and `dotenv` are installed)
 5. **systemd**: installs the unit from [windfire-ui-react.service.j2](deployment/raspberry/templates/windfire-ui-react.service.j2), then enables and starts the service. systemd restarts it 5 seconds after a failure and starts it at boot. Logs go to `/home/pi/windfire-ui-react/logs/windfire-ui-react.log`.
 6. **Health check**: waits for port 9443 and calls `https://raspberry01:9443/`, checking the certificate against the Windfire Root CA. If the check fails, it prints the last 50 lines of the journal and of the service log, and the deploy fails.
 
-Re-run `deploy.sh` whenever the code or a `REACT_APP_*` value changes: every deploy rebuilds the bundle and replaces the remote folder.
+Re-run `deploy.sh` whenever the code or a `VITE_*` value changes: every deploy rebuilds the bundle and replaces the remote folder.
 
 ### What `undeploy.sh` does
 After confirmation, it runs [windfire-ui-react-undeploy.yaml](deployment/raspberry/windfire-ui-react-undeploy.yaml): stops and disables the service, removes its systemd unit and deletes `/home/pi/windfire-ui-react`. Node.js and the shared Windfire Root CA are left in place.

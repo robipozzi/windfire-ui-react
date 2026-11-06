@@ -9,8 +9,8 @@ show_help() {
   echo -e "${BOLD}Usage: ./start.sh [OPTIONS]${NC}"
   echo ""
   echo -e "${BOLD}Options:${NC}"
-  echo -e "${BOLD}  --dev       Start the development server (npm start)${NC}"
-  echo -e "${BOLD}              HTTPS is enabled if HTTPS=true, SSL_CRT_FILE, and SSL_KEY_FILE are set in .env${NC}"
+  echo -e "${BOLD}  --dev       Start the development server (npm run dev)${NC}"
+  echo -e "${BOLD}              Uses HTTPS if the SSL_KEY_FILE and SSL_CRT_FILE files exist, HTTP otherwise${NC}"
   echo -e "${BOLD}  -h, --help  Show this help message and exit${NC}"
   echo ""
   echo -e "${BOLD}Default (no options): build the app and start the production HTTPS server.${NC}"
@@ -36,8 +36,8 @@ fi
 
 if [ "$DEV_MODE" = "true" ]; then
   echo -e "${YELLOW}==> Starting development server...${NC}"
-  echo -e "${WHITE}    HTTPS will be enabled if HTTPS=true, SSL_CRT_FILE, and SSL_KEY_FILE are set in .env${NC}"
-  npm start
+  echo -e "${WHITE}    HTTPS is used if the SSL_KEY_FILE and SSL_CRT_FILE files exist, HTTP otherwise${NC}"
+  npm run dev
 else
   # Same precedence as server.js: shell environment, then .env, then the default filenames
   SSL_KEY_FILE="${SSL_KEY_FILE:-$(getEnvFileValue .env SSL_KEY_FILE)}"

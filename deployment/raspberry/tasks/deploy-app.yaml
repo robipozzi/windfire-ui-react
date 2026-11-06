@@ -7,23 +7,23 @@
 - name: Check application configuration is set
   ansible.builtin.assert:
     that:
-      - react_app_keycloak_url | length > 0
-      - react_app_keycloak_realm | length > 0
-      - react_app_keycloak_client_id | length > 0
-      - react_app_restaurants_url | length > 0
-    fail_msg: "REACT_APP_KEYCLOAK_URL, REACT_APP_KEYCLOAK_REALM, REACT_APP_KEYCLOAK_CLIENT_ID and REACT_APP_RESTAURANTS_URL must be exported (run deployment/deploy.sh)"
+      - vite_keycloak_url | length > 0
+      - vite_keycloak_realm | length > 0
+      - vite_keycloak_client_id | length > 0
+      - vite_restaurants_url | length > 0
+    fail_msg: "VITE_KEYCLOAK_URL, VITE_KEYCLOAK_REALM, VITE_KEYCLOAK_CLIENT_ID and VITE_RESTAURANTS_URL must be exported (run deployment/deploy.sh)"
     quiet: true
 
-- name: Check local React build {{ local_windfire_ui_react_dir }}/build exists
+- name: Check local React build {{ local_windfire_ui_react_dir }}/dist exists
   ansible.builtin.stat:
-    path: "{{ local_windfire_ui_react_dir }}/build/index.html"
+    path: "{{ local_windfire_ui_react_dir }}/dist/index.html"
   register: local_build
   delegate_to: localhost
   become: false
 
 - name: Fail if local React build is missing
   ansible.builtin.fail:
-    msg: "{{ local_windfire_ui_react_dir }}/build/index.html not found: run deployment/deploy.sh, which builds the application"
+    msg: "{{ local_windfire_ui_react_dir }}/dist/index.html not found: run deployment/deploy.sh, which builds the application"
   when: not local_build.stat.exists
 
 # Task 1: Check Node.js runtime on remote server
@@ -71,7 +71,7 @@
 # Only what the production server needs: no sources, node_modules, local .env or local certificates
 - name: Copy React build to "{{ remote_windfire_ui_react_dir }}" directory on remote server
   ansible.builtin.synchronize:
-    src: "{{ local_windfire_ui_react_dir }}/build"
+    src: "{{ local_windfire_ui_react_dir }}/dist"
     dest: "{{ remote_windfire_ui_react_dir }}"
   become: false
 

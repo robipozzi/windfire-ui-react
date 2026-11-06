@@ -11,7 +11,7 @@ const STORAGE_KEY = 'wf_auth';
 const EXPIRY_SKEW_SECONDS = 30;
 const SESSION_EXPIRED_MESSAGE = 'Your session has expired. Please sign in again.';
 // Keycloak client whose roles the restaurants backend authorizes against.
-const API_CLIENT_ID = process.env.REACT_APP_RESTAURANTS_API_CLIENT_ID || 'windfire-restaurants-api';
+const API_CLIENT_ID = import.meta.env.VITE_RESTAURANTS_API_CLIENT_ID || 'windfire-restaurants-api';
 const AuthContext = createContext(null);
 
 function loadStored() {

@@ -1,6 +1,6 @@
 'use strict';
 
-require('dotenv').config(); // load .env into process.env (e.g. REACT_APP_KEYCLOAK_URL)
+require('dotenv').config(); // load .env into process.env (e.g. VITE_KEYCLOAK_URL)
 
 const https   = require('https');
 const http    = require('http');
@@ -12,15 +12,15 @@ const helmet  = require('helmet');
 // ---------------------------------------------------------------------------
 // Configuration validation
 // Keycloak is served over HTTPS and the browser talks to it directly, so
-// REACT_APP_KEYCLOAK_URL must be an absolute URL. A relative value such as
+// VITE_KEYCLOAK_URL must be an absolute URL. A relative value such as
 // /keycloak belonged to the removed /keycloak proxy and is rejected at startup.
 // ---------------------------------------------------------------------------
 const validateConfig = (env) => {
-  const keycloakUrl = env.REACT_APP_KEYCLOAK_URL || '';
+  const keycloakUrl = env.VITE_KEYCLOAK_URL || '';
   if (keycloakUrl.startsWith('/')) {
     throw new Error(
-      `REACT_APP_KEYCLOAK_URL is relative ("${keycloakUrl}"). The /keycloak proxy has been removed: ` +
-      'set REACT_APP_KEYCLOAK_URL in .env to the absolute https:// URL of Keycloak ' +
+      `VITE_KEYCLOAK_URL is relative ("${keycloakUrl}"). The /keycloak proxy has been removed: ` +
+      'set VITE_KEYCLOAK_URL in .env to the absolute https:// URL of Keycloak ' +
       '(e.g. https://raspberry01:8443), then rebuild and restart.'
     );
   }
@@ -34,14 +34,14 @@ const originOf = (url) => {
   }
 };
 
-// CRA puts content-hashed bundles under build/static/, so they can be cached forever
+// Vite puts content-hashed bundles under dist/assets/, so they can be cached forever
 const isHashedAsset = (filePath, buildDir) =>
-  path.relative(buildDir, filePath).split(path.sep)[0] === 'static';
+  path.relative(buildDir, filePath).split(path.sep)[0] === 'assets';
 
 // ---------------------------------------------------------------------------
 // Express app — serves the React production build
 // ---------------------------------------------------------------------------
-const createApp = ({ env = process.env, buildDir = path.join(__dirname, 'build') } = {}) => {
+const createApp = ({ env = process.env, buildDir = path.join(__dirname, 'dist') } = {}) => {
   validateConfig(env);
 
   const app = express();
@@ -53,8 +53,8 @@ const createApp = ({ env = process.env, buildDir = path.join(__dirname, 'build')
   // read once at startup.
   // -------------------------------------------------------------------------
   const connectSrc = ["'self'", ...new Set([
-    originOf(env.REACT_APP_KEYCLOAK_URL),
-    originOf(env.REACT_APP_RESTAURANTS_URL),
+    originOf(env.VITE_KEYCLOAK_URL),
+    originOf(env.VITE_RESTAURANTS_URL),
   ].filter(Boolean))];
 
   app.use(helmet({

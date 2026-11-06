@@ -62,7 +62,7 @@ export default function RestaurantsPage() {
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
 
   useEffect(() => {
-    const url = process.env.REACT_APP_RESTAURANTS_URL;
+    const url = import.meta.env.VITE_RESTAURANTS_URL;
     authFetch(url)
       .then((res) => {
         if (!res.ok) throw requestError(res);
@@ -96,7 +96,7 @@ export default function RestaurantsPage() {
     setConfirmDeleteId(null);
     setDeletingId(restaurant.id);
     setDeleteError(null);
-    const url = `${process.env.REACT_APP_RESTAURANTS_URL}/${restaurant.id}`;
+    const url = `${import.meta.env.VITE_RESTAURANTS_URL}/${restaurant.id}`;
     try {
       const res = await authFetch(url, { method: 'DELETE' });
       if (!res.ok) throw requestError(res);
@@ -131,7 +131,7 @@ export default function RestaurantsPage() {
       website: formData.website,
     };
 
-    const url = process.env.REACT_APP_RESTAURANTS_URL;
+    const url = import.meta.env.VITE_RESTAURANTS_URL;
     try {
       const res = await authFetch(url, {
         method: 'POST',
