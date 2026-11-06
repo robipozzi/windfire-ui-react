@@ -14,8 +14,8 @@ windfire_server_key: "{{ lookup('env', 'WINDFIRE_SERVER_KEY') | default('windfir
 local_windfire_ui_react_dir: "{{ playbook_dir }}/../.."
 remote_windfire_ui_react_dir: "{{ remote_home_dir }}/windfire-ui-react"
 # Node.js runtime: installed from NodeSource by windfire-ui-react-full-deploy.yaml, checked by every deploy
-nodejs_version: "22.x"
-node_min_major: 18
+nodejs_version: "26.x"
+node_min_major: 26
 # systemd service and application (.env) configuration
 service_name: windfire-ui-react
 app_description: Windfire UI React
