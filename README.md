@@ -1,4 +1,5 @@
 # Windfire UI
+[![CI](https://github.com/robipozzi/windfire-ui-react/actions/workflows/ci.yml/badge.svg)](https://github.com/robipozzi/windfire-ui-react/actions/workflows/ci.yml)
 
 A browser-based UI for the Windfire application, built with React 18.
 
@@ -32,6 +33,7 @@ graph TD
 
 ```
 windfire-ui-react/
+├── .github/                      # dependabot.yml and the CI workflow (workflows/ci.yml)
 ├── public/                       # Static assets (index.html, icons, manifest)
 ├── src/
 │   ├── auth/
@@ -355,6 +357,25 @@ curl -sk -o /dev/null -D - -X OPTIONS https://localhost:8081/restaurants \
   -H 'Access-Control-Request-Headers: authorization'
 ```
 Expect `200` with `Access-Control-Allow-Origin: https://localhost`. A `403` means the origin is not in `CORS_ALLOWED_ORIGINS`.
+
+---
+
+## Dependency monitoring and CI
+
+### CI
+
+The badge at the top of this page shows the latest [CI workflow](.github/workflows/ci.yml) run on `main`; click it to see all runs. The workflow runs on every pull request and on every push to `main`:
+
+* installs the dependencies from the lock file (`npm ci`), using the same Node.js major version as the Raspberry Pi (`nodejs_version` in [conf/config.yaml](deployment/raspberry/conf/config.yaml))
+* runs the tests (`npm test -- --watchAll=false`)
+* fails on production dependencies with high or critical vulnerabilities (`npm audit --omit=dev --audit-level=high`)
+* on pull requests only, fails if the pull request adds a dependency with a high or critical vulnerability (dependency review)
+
+### Dependabot
+
+[Dependabot](.github/dependabot.yml) checks the npm dependencies and the GitHub Actions used by the workflow every week. Minor and patch updates are grouped into one pull request for each of the two, major updates get their own pull requests, and each of the two has at most 5 version update pull requests open at a time.
+
+To read the alerts, go to the **Security** tab of the repository and open **Dependabot** (https://github.com/robipozzi/windfire-ui-react/security/dependabot; you need access to the repository's security alerts). Each alert shows the affected package and file, the severity, the advisory and the first patched version, and links to the Dependabot pull request if there is one.
 
 ---
 
