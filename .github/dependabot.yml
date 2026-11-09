@@ -34,3 +34,10 @@ updates:
         update-types:
           - minor
           - patch
+ignore:
+  - dependency-name: "react"
+    versions: ["19.x"]
+  - dependency-name: "react-dom"
+    versions: ["19.x"]
+  - dependency-name: "express"
+    versions: ["5.x"]
