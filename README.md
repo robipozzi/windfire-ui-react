@@ -333,7 +333,7 @@ The cause is CORS. Because the `Authorization` header is sent, the browser first
 
 To develop locally, run the Restaurants backend locally as well:
 
-1. In `windfire-restaurants-backend`, run `./run-windfire-restaurants-backend.sh`. Its default CORS origin is `https://localhost`, where `./start.sh` serves this app. If you use `./start.sh --dev` (port 3000), enter `http://localhost:3000` (or `https://localhost:3000` with dev HTTPS) at the CORS prompt instead.
+1. In `windfire-restaurants-backend`, run `./start-windfire-restaurants-backend.sh`. Its default CORS origin is `https://localhost`, where `./start.sh` serves this app. If you use `./start.sh --dev` (port 3000), enter `http://localhost:3000` (or `https://localhost:3000` with dev HTTPS) at the CORS prompt instead.
 2. In `.env`, set:
    ```
    VITE_RESTAURANTS_URL=https://localhost:8081/restaurants
