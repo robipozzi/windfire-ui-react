@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth, SessionExpiredError } from '../auth/AuthContext';
 import { safeHttpUrl } from '../utils/safeUrl';
 import './RestaurantsPage.css';
@@ -46,7 +46,7 @@ function errorMessage(err) {
 }
 
 export default function RestaurantsPage() {
-  const { authFetch, hasApiRole } = useAuth();
+  const { getToken, hasApiRole } = useAuth();
   // Only writers may add or delete; the backend rejects anyone else with 403.
   const canWrite = hasApiRole('restaurants-writer');
   const [restaurants, setRestaurants] = useState([]);
@@ -61,6 +61,15 @@ export default function RestaurantsPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
 
+  // Every request gets its token from getToken(), which refreshes it when it expires within 30 s.
+  const authFetch = useCallback(async (url, options = {}) => {
+    const token = await getToken();
+    return fetch(url, {
+      ...options,
+      headers: { ...options.headers, Authorization: `Bearer ${token}` },
+    });
+  }, [getToken]);
+
   useEffect(() => {
     const url = import.meta.env.VITE_RESTAURANTS_URL;
     authFetch(url)
@@ -73,7 +82,7 @@ export default function RestaurantsPage() {
         setLoading(false);
       })
       .catch((err) => {
-        // On session expiry the app switches to the login form; nothing to show here.
+        // On session expiry getToken() redirects to the Keycloak login page; nothing to show here.
         if (err instanceof SessionExpiredError) return;
         setError(errorMessage(err));
         setLoading(false);

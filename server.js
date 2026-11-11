@@ -50,12 +50,15 @@ const createApp = ({ env = process.env, buildDir = path.join(__dirname, 'dist') 
   // -------------------------------------------------------------------------
   // Security headers
   // connect-src allows the origins of the Keycloak and Restaurants API URLs,
-  // read once at startup.
+  // read once at startup. form-action allows Keycloak for the login and
+  // logout redirects. No frame-src: keycloak-js runs with checkLoginIframe off.
   // -------------------------------------------------------------------------
+  const keycloakOrigin = originOf(env.VITE_KEYCLOAK_URL);
   const connectSrc = ["'self'", ...new Set([
-    originOf(env.VITE_KEYCLOAK_URL),
+    keycloakOrigin,
     originOf(env.VITE_RESTAURANTS_URL),
   ].filter(Boolean))];
+  const formAction = ["'self'", keycloakOrigin].filter(Boolean);
 
   app.use(helmet({
     contentSecurityPolicy: {
@@ -66,6 +69,7 @@ const createApp = ({ env = process.env, buildDir = path.join(__dirname, 'dist') 
         styleSrc:       ["'self'", "'unsafe-inline'"],
         imgSrc:         ["'self'", 'data:'],
         connectSrc,
+        formAction,
         frameAncestors: ["'none'"],
         objectSrc:      ["'none'"],
         baseUri:        ["'self'"],

@@ -40,6 +40,8 @@ describe('server.js', () => {
     const csp = res.headers['content-security-policy'];
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("connect-src 'self' https://kc.example:8443 https://api.example");
+    expect(csp).toContain("form-action 'self' https://kc.example:8443");
+    expect(csp).not.toContain('frame-src');
 
     expect(res.headers['strict-transport-security']).toContain('max-age=31536000');
     expect(res.headers['x-content-type-options']).toBe('nosniff');

@@ -1,119 +1,116 @@
 import { vi } from 'vitest';
-import { render, screen, act, waitFor } from '@testing-library/react';
-import { AuthProvider, useAuth, SessionExpiredError, hasClientRole } from './AuthContext';
+import { render, screen, act } from '@testing-library/react';
 
-const API_URL = 'https://api.example/restaurants';
+const kc = vi.hoisted(() => ({}));
+vi.mock('keycloak-js', () => ({ default: vi.fn(function Keycloak() { return kc; }) }));
 
-function makeToken(expOffsetSeconds, extra = {}) {
-  const payload = { exp: Math.floor(Date.now() / 1000) + expOffsetSeconds, ...extra };
-  const b64 = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `header.${b64}.signature`;
+let AuthProvider, useAuth, SessionExpiredError, hasClientRole;
+
+function deferred() {
+  let resolve, reject;
+  const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
 }
 
-function storeSession(accessToken, refreshToken = 'refresh-1') {
-  sessionStorage.setItem('wf_auth', JSON.stringify({
-    tokens: { access_token: accessToken, refresh_token: refreshToken },
-    user: {},
-  }));
-}
-
-function jsonResponse(status, body = {}) {
-  return Promise.resolve({
-    ok: status >= 200 && status < 300,
-    status,
-    statusText: String(status),
-    json: () => Promise.resolve(body),
-  });
-}
-
-const isTokenCall = ([url]) => String(url).includes('/protocol/openid-connect/token');
-
-function renderWithAuth() {
+async function renderWithAuth() {
   const ref = {};
   function Probe() {
     Object.assign(ref, useAuth());
     return <div>{ref.isAuthenticated ? 'in' : 'out'}</div>;
   }
   render(<AuthProvider><Probe /></AuthProvider>);
+  await screen.findByText('in');
   return ref;
 }
 
-beforeEach(() => {
-  sessionStorage.clear();
-  vi.spyOn(global, 'fetch');
+beforeEach(async () => {
+  // initKeycloak() memoizes its promise, so each test starts from fresh modules.
+  vi.resetModules();
+  Object.keys(kc).forEach((k) => delete kc[k]);
+  Object.assign(kc, {
+    authenticated: true,
+    token: 'access-1',
+    tokenParsed: { name: 'Ada Lovelace', preferred_username: 'ada', email: 'ada@example.com' },
+    init: vi.fn(() => Promise.resolve(true)),
+    updateToken: vi.fn(() => Promise.resolve(false)),
+    login: vi.fn(),
+    logout: vi.fn(() => Promise.resolve()),
+  });
+  ({ AuthProvider, useAuth, SessionExpiredError, hasClientRole } = await import('./AuthContext'));
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-test('refreshes an expired access token before calling the API', async () => {
-  const fresh = makeToken(300);
-  storeSession(makeToken(-10));
-  fetch.mockImplementation((url) =>
-    String(url).includes('/token')
-      ? jsonResponse(200, { access_token: fresh, refresh_token: 'refresh-2' })
-      : jsonResponse(200, []));
-
-  const auth = renderWithAuth();
-  await act(async () => { await auth.authFetch(API_URL); });
-
-  const [tokenCall, apiCall] = fetch.mock.calls;
-  expect(isTokenCall(tokenCall)).toBe(true);
-  expect(tokenCall[1].body.get('grant_type')).toBe('refresh_token');
-  expect(tokenCall[1].body.get('refresh_token')).toBe('refresh-1');
-  expect(apiCall[0]).toBe(API_URL);
-  expect(apiCall[1].headers.Authorization).toBe(`Bearer ${fresh}`);
-  expect(JSON.parse(sessionStorage.getItem('wf_auth')).tokens.refresh_token).toBe('refresh-2');
+test('initializes Keycloak once with the PKCE login-required options', async () => {
+  await renderWithAuth();
+  expect(kc.init).toHaveBeenCalledTimes(1);
+  expect(kc.init).toHaveBeenCalledWith({ onLoad: 'login-required', pkceMethod: 'S256', checkLoginIframe: false });
 });
 
-test('forces a refresh and retries once when the API returns 401', async () => {
-  const fresh = makeToken(300);
-  storeSession(makeToken(300));
-  fetch
-    .mockImplementationOnce(() => jsonResponse(401))
-    .mockImplementationOnce(() => jsonResponse(200, { access_token: fresh, refresh_token: 'refresh-2' }))
-    .mockImplementationOnce(() => jsonResponse(200, []));
+test('shows "Signing you in…" until init resolves, then renders the app', async () => {
+  const init = deferred();
+  kc.init.mockReturnValue(init.promise);
+  render(<AuthProvider><div>app</div></AuthProvider>);
 
-  const auth = renderWithAuth();
-  let res;
-  await act(async () => { res = await auth.authFetch(API_URL); });
+  expect(screen.getByRole('status')).toHaveTextContent('Signing you in…');
+  expect(screen.queryByText('app')).not.toBeInTheDocument();
 
-  expect(res.status).toBe(200);
-  expect(fetch).toHaveBeenCalledTimes(3);
-  expect(fetch.mock.calls[2][1].headers.Authorization).toBe(`Bearer ${fresh}`);
+  await act(async () => { init.resolve(true); });
+  expect(screen.getByText('app')).toBeInTheDocument();
 });
 
-test('clears the session when the refresh fails', async () => {
-  storeSession(makeToken(-10));
-  fetch.mockImplementation(() => jsonResponse(400, { error_description: 'Session not active' }));
+test('shows an error instead of the app when init fails', async () => {
+  kc.init.mockReturnValue(Promise.reject(new Error('boom')));
+  render(<AuthProvider><div>app</div></AuthProvider>);
 
-  const auth = renderWithAuth();
-  expect(screen.getByText('in')).toBeInTheDocument();
-
-  await act(async () => {
-    await expect(auth.authFetch(API_URL)).rejects.toBeInstanceOf(SessionExpiredError);
-  });
-
-  await waitFor(() => expect(screen.getByText('out')).toBeInTheDocument());
-  expect(auth.sessionMessage).toMatch(/session has expired/i);
-  expect(sessionStorage.getItem('wf_auth')).toBeNull();
+  expect(await screen.findByText(/sign-in failed/i)).toBeInTheDocument();
+  expect(screen.queryByText('app')).not.toBeInTheDocument();
 });
 
-test('concurrent requests share a single refresh', async () => {
-  storeSession(makeToken(-10));
-  fetch.mockImplementation((url) =>
-    String(url).includes('/token')
-      ? jsonResponse(200, { access_token: makeToken(300), refresh_token: 'refresh-2' })
-      : jsonResponse(200, []));
+test('exposes only name and preferred_username as user', async () => {
+  const auth = await renderWithAuth();
+  expect(auth.user).toEqual({ name: 'Ada Lovelace', preferred_username: 'ada' });
+});
 
-  const auth = renderWithAuth();
-  await act(async () => {
-    await Promise.all([auth.authFetch(API_URL), auth.authFetch(API_URL)]);
-  });
+test('getToken refreshes ahead of expiry and returns the current token', async () => {
+  kc.updateToken.mockImplementation(async () => { kc.token = 'access-2'; return true; });
+  const auth = await renderWithAuth();
 
-  expect(fetch.mock.calls.filter(isTokenCall)).toHaveLength(1);
-  expect(fetch.mock.calls.filter((c) => !isTokenCall(c))).toHaveLength(2);
+  let token;
+  await act(async () => { token = await auth.getToken(); });
+
+  expect(kc.updateToken).toHaveBeenCalledWith(30);
+  expect(token).toBe('access-2');
+});
+
+test('getToken redirects to login and throws when the refresh fails', async () => {
+  kc.updateToken.mockRejectedValue(new Error('refresh failed'));
+  const auth = await renderWithAuth();
+
+  await expect(auth.getToken()).rejects.toBeInstanceOf(SessionExpiredError);
+  expect(kc.login).toHaveBeenCalledTimes(1);
+});
+
+test('logout returns to the app origin', async () => {
+  const auth = await renderWithAuth();
+  auth.logout();
+  expect(kc.logout).toHaveBeenCalledWith({ redirectUri: window.location.origin });
+});
+
+test('keeps tokens out of web storage', async () => {
+  const setItem = vi.spyOn(Storage.prototype, 'setItem');
+  const auth = await renderWithAuth();
+  await act(async () => { await auth.getToken(); });
+  expect(setItem).not.toHaveBeenCalled();
+});
+
+test('hasApiRole reads client roles from the token', async () => {
+  kc.tokenParsed.resource_access = { 'windfire-restaurants-api': { roles: ['restaurants-writer'] } };
+  const auth = await renderWithAuth();
+  expect(auth.hasApiRole('restaurants-writer')).toBe(true);
+  expect(auth.hasApiRole('restaurants-admin')).toBe(false);
 });
 
 describe('hasClientRole', () => {
