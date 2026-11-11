@@ -3,6 +3,9 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { AuthProvider } from '../auth/AuthContext';
 import RestaurantsPage from './RestaurantsPage';
 
+const kc = vi.hoisted(() => ({}));
+vi.mock('keycloak-js', () => ({ default: vi.fn(function Keycloak() { return kc; }) }));
+
 const RESTAURANT = {
   id: '1',
   name: 'La Perla',
@@ -10,16 +13,11 @@ const RESTAURANT = {
   cuisine: 'Pesce',
 };
 
-function storeSessionWithRoles(roles) {
-  const user = {
-    exp: Math.floor(Date.now() / 1000) + 300,
+function signInWithRoles(roles) {
+  kc.tokenParsed = {
+    preferred_username: 'ada',
     resource_access: { 'windfire-restaurants-api': { roles } },
   };
-  const b64 = btoa(JSON.stringify(user)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  sessionStorage.setItem('wf_auth', JSON.stringify({
-    tokens: { access_token: `header.${b64}.signature`, refresh_token: 'refresh-1' },
-    user,
-  }));
 }
 
 async function renderPage() {
@@ -28,7 +26,15 @@ async function renderPage() {
 }
 
 beforeEach(() => {
-  sessionStorage.clear();
+  Object.assign(kc, {
+    authenticated: true,
+    token: 'access-1',
+    tokenParsed: {},
+    init: vi.fn(() => Promise.resolve(true)),
+    updateToken: vi.fn(() => Promise.resolve(false)),
+    login: vi.fn(),
+    logout: vi.fn(),
+  });
   vi.spyOn(global, 'fetch').mockImplementation(() => Promise.resolve({
     ok: true,
     status: 200,
@@ -40,8 +46,18 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+test('calls getToken before fetching and sends the token as a bearer header', async () => {
+  signInWithRoles(['restaurants-reader']);
+  await renderPage();
+
+  expect(kc.updateToken).toHaveBeenCalledWith(30);
+  expect(kc.updateToken.mock.invocationCallOrder[0])
+    .toBeLessThan(fetch.mock.invocationCallOrder[0]);
+  expect(fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer access-1');
+});
+
 test('writers see Add, the Actions column and Delete', async () => {
-  storeSessionWithRoles(['restaurants-reader', 'restaurants-writer']);
+  signInWithRoles(['restaurants-reader', 'restaurants-writer']);
   await renderPage();
 
   expect(screen.getByRole('button', { name: '+ Add Restaurant' })).toBeInTheDocument();
@@ -50,7 +66,7 @@ test('writers see Add, the Actions column and Delete', async () => {
 });
 
 test('readers see the list and details but no write actions', async () => {
-  storeSessionWithRoles(['restaurants-reader']);
+  signInWithRoles(['restaurants-reader']);
   await renderPage();
 
   expect(screen.queryByRole('button', { name: '+ Add Restaurant' })).not.toBeInTheDocument();
@@ -62,7 +78,7 @@ test('readers see the list and details but no write actions', async () => {
 });
 
 test('an unreachable API shows a clear message instead of the browser text', async () => {
-  storeSessionWithRoles(['restaurants-reader']);
+  signInWithRoles(['restaurants-reader']);
   global.fetch.mockImplementation(() => Promise.reject(new TypeError('Load failed')));
   render(<AuthProvider><RestaurantsPage /></AuthProvider>);
 
