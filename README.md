@@ -39,10 +39,9 @@ windfire-ui-react/
 ├── public/                       # Static assets copied as is to dist/ (icons, manifest)
 ├── src/
 │   ├── auth/
-│   │   ├── keycloakService.js      # Keycloak token & logout API calls
-│   │   └── AuthContext.jsx         # React Context for global auth state
+│   │   ├── keycloak.js             # The single keycloak-js instance and its init (PKCE)
+│   │   └── AuthContext.jsx         # React Context: auth state, getToken(), logout()
 │   ├── components/
-│   │   ├── LoginForm.jsx / .css    # Login form (username/password + error display)
 │   │   ├── HomePage.jsx / .css     # Authenticated shell: renders Header/body/Footer, page routing
 │   │   ├── Header.jsx / .css       # Top nav bar: logo, Restaurants/Calendar links, user + sign out
 │   │   ├── Footer.jsx / .css       # Footer bar
@@ -50,7 +49,7 @@ windfire-ui-react/
 │   │   ├── PlaceholderPage.jsx / .css # "Coming soon" placeholder (used for Calendar)
 │   │   ├── WindfireLogo.jsx        # Inline SVG Windfire wordmark/flame logo
 │   │   └── ArchitectureDiagram.jsx # Inline SVG system architecture diagram (not currently rendered)
-│   ├── App.jsx                   # Root component: routes between LoginForm and HomePage
+│   ├── App.jsx                   # Root component: AuthProvider around HomePage
 │   ├── App.css / index.css       # Global styles
 │   └── index.jsx                 # React entry point
 ├── ssl/
@@ -71,16 +70,16 @@ windfire-ui-react/
 
 ### Authentication Flow
 
-This app uses the **OIDC Resource Owner Password Credentials** grant (direct credentials flow):
+This app uses the **OIDC Authorization Code flow with PKCE (S256)** through [`keycloak-js`](https://www.npmjs.com/package/keycloak-js). The app never sees the user's password:
 
-1. The user submits username and password via `LoginForm`.
-2. `keycloakService.js` POSTs to `{KEYCLOAK_URL}/realms/{REALM}/protocol/openid-connect/token` with `grant_type=password`.
-3. Keycloak returns an access token and a refresh token (both JWTs).
-4. The access token is decoded client-side to extract the user's display name (`name`, `preferred_username`).
-5. Tokens are stored in `sessionStorage` under the key `wf_auth` (cleared on browser close).
-6. On logout, the refresh token is invalidated by POSTing to Keycloak's logout endpoint, then session storage is cleared.
+1. On load, `AuthProvider` calls `keycloak.init({ onLoad: 'login-required', pkceMethod: 'S256', checkLoginIframe: false })` and shows "Signing you in…" until it completes.
+2. Without a Keycloak session, the browser is redirected to the Keycloak login page. After sign-in, Keycloak redirects back with an authorization code, which `keycloak-js` exchanges for tokens together with the PKCE code verifier.
+3. The user's display name (`name`, `preferred_username`) comes from the access token's claims.
+4. Tokens are kept **in memory only** in the `keycloak-js` instance, never in `sessionStorage` or `localStorage`. A page reload goes through a quick redirect to Keycloak, which signs the user in again without a prompt while the Keycloak session lasts. (`keycloak-js` keeps the short-lived PKCE state, nonce and code verifier in `localStorage` during the redirect and deletes them on return. It never stores tokens there.)
+5. Before each API call, `getToken()` calls `keycloak.updateToken(30)`, which refreshes the access token when it expires within 30 seconds. If the refresh fails, the user is sent back to the Keycloak login page.
+6. Sign out calls `keycloak.logout({ redirectUri: window.location.origin })`, which ends the Keycloak session and returns to the app.
 
-`App.js` renders `LoginForm` when unauthenticated and `HomePage` once authentication succeeds.
+`App.jsx` wraps `HomePage` in `AuthProvider`, which renders it only after sign-in has completed.
 
 ### Application Features
 
@@ -113,14 +112,16 @@ Inside the `windfire` realm, create a client with the following settings:
 | Client ID | `windfire` (must match `VITE_KEYCLOAK_CLIENT_ID`) |
 | Client type | OpenID Connect |
 | Client authentication | Off (public client — no client secret) |
-| Standard flow | Optional (not used by this app) |
-| Direct access grants | **Enabled** (required — this app uses the password grant) |
-| Valid redirect URIs | `https://localhost/*`, `https://localhost:3000/*`, `https://raspberry01:9443/*` |
-| Web origins | `https://localhost`, `https://localhost:3000`, `https://raspberry01:9443` |
+| Standard flow | **On** (Authorization Code flow) |
+| Direct access grants | **Off** (the password grant is not used) |
+| Proof Key for Code Exchange Code Challenge Method (*Advanced* tab) | **S256** |
+| Valid redirect URIs | Exact URIs, no wildcards: `https://localhost/`, `https://localhost:3000/`, `https://raspberry01:9443/` |
+| Valid post logout redirect URIs | `https://localhost`, `https://localhost:3000`, `https://raspberry01:9443` |
+| Web origins | `+` (allows the origins of the valid redirect URIs) |
 
-> **Why public + Direct Access Grants?** This is a browser SPA with no server-side component, so it cannot safely hold a client secret. The password grant posts credentials directly to Keycloak from the browser.
+> **Why public + PKCE?** This is a browser SPA, so it cannot keep a client secret. With PKCE, only the browser that started the login can exchange the authorization code for tokens, and users enter their password on Keycloak's own page, never in this app.
 
-> If deploying to a non-localhost URL, add that URL to **Valid redirect URIs** and **Web origins** as well.
+> If deploying to another URL, add it to **Valid redirect URIs** and **Valid post logout redirect URIs**.
 
 ### 3. Create Users
 
@@ -333,7 +334,7 @@ The cause is CORS. Because the `Authorization` header is sent, the browser first
 
 To develop locally, run the Restaurants backend locally as well:
 
-1. In `windfire-restaurants-backend`, run `./run-windfire-restaurants-backend.sh`. Its default CORS origin is `https://localhost`, where `./start.sh` serves this app. If you use `./start.sh --dev` (port 3000), enter `http://localhost:3000` (or `https://localhost:3000` with dev HTTPS) at the CORS prompt instead.
+1. In `windfire-restaurants-backend`, run `./start-windfire-restaurants-backend.sh`. Its default CORS origin is `https://localhost`, where `./start.sh` serves this app. If you use `./start.sh --dev` (port 3000), enter `http://localhost:3000` (or `https://localhost:3000` with dev HTTPS) at the CORS prompt instead.
 2. In `.env`, set:
    ```
    VITE_RESTAURANTS_URL=https://localhost:8081/restaurants

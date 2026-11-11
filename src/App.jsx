@@ -1,13 +1,9 @@
 import { AuthProvider, useAuth } from './auth/AuthContext';
-import LoginForm from './components/LoginForm';
 import HomePage from './components/HomePage';
 
+// AuthProvider renders its children only after the Keycloak login redirect has completed.
 function AppContent() {
-  const { isAuthenticated, user, logout } = useAuth();
-  if (!isAuthenticated) {
-    return <LoginForm />;
-  }
-
+  const { user, logout } = useAuth();
   return <HomePage user={user} onLogout={logout} />;
 }
 
