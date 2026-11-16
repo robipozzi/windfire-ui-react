@@ -115,8 +115,8 @@ Inside the `windfire` realm, create a client with the following settings:
 | Standard flow | **On** (Authorization Code flow) |
 | Direct access grants | **Off** (the password grant is not used) |
 | Proof Key for Code Exchange Code Challenge Method (*Advanced* tab) | **S256** |
-| Valid redirect URIs | Exact URIs, no wildcards: `https://localhost/`, `https://localhost:3000/`, `https://raspberry01:9443/` |
-| Valid post logout redirect URIs | `https://localhost`, `https://localhost:3000`, `https://raspberry01:9443` |
+| Valid redirect URIs | Exact URIs, no wildcards: `https://localhost/`, `https://localhost:3000/`, `https://raspberry01:8445/` |
+| Valid post logout redirect URIs | `https://localhost`, `https://localhost:3000`, `https://raspberry01:8445` |
 | Web origins | `+` (allows the origins of the valid redirect URIs) |
 
 > **Why public + PKCE?** This is a browser SPA, so it cannot keep a client secret. With PKCE, only the browser that started the login can exchange the authorization code for tokens, and users enter their password on Keycloak's own page, never in this app.
@@ -294,8 +294,8 @@ When switching from HTTP to HTTPS, update the Keycloak client's **Valid redirect
 
 | Setting | HTTPS value |
 |---|---|
-| Valid redirect URIs | `https://localhost/*`, `https://localhost:3000/*`, `https://raspberry01:9443/*` |
-| Web origins | `https://localhost`, `https://localhost:3000`, `https://raspberry01:9443` |
+| Valid redirect URIs | `https://localhost/*`, `https://localhost:3000/*`, `https://raspberry01:8445/*` |
+| Web origins | `https://localhost`, `https://localhost:3000`, `https://raspberry01:8445` |
 
 > The app will fail to authenticate if the redirect URIs in Keycloak still point to `http://` after switching to HTTPS.
 >
@@ -330,7 +330,7 @@ Repeat this on every machine a browser is used against this app — the dev Mac,
 
 When the app runs locally, the Restaurants page may show `Failed to load restaurants: Cannot reach the Restaurants API (network, certificate or CORS error).`, and Safari's console reports `Preflight response is not successful. Status code: 403` (Chrome: `Failed to fetch` with a CORS error).
 
-The cause is CORS. Because the `Authorization` header is sent, the browser first sends an `OPTIONS` preflight carrying the app's origin. The backend rejects any origin missing from its `CORS_ALLOWED_ORIGINS` with `403` and no `Access-Control-Allow-Origin` header. The deployed backend on `raspberry02:8081` only allows `https://raspberry01:9443`, so a local origin such as `https://localhost` or `http://localhost:3000` is rejected there. The access token is not the problem: the same request via curl or Postman succeeds.
+The cause is CORS. Because the `Authorization` header is sent, the browser first sends an `OPTIONS` preflight carrying the app's origin. The backend rejects any origin missing from its `CORS_ALLOWED_ORIGINS` with `403` and no `Access-Control-Allow-Origin` header. The deployed backend on `raspberry02:8081` only allows `https://raspberry01:8445`, so a local origin such as `https://localhost` or `http://localhost:3000` is rejected there. The access token is not the problem: the same request via curl or Postman succeeds.
 
 To develop locally, run the Restaurants backend locally as well:
 
@@ -373,7 +373,7 @@ To read the alerts, go to the **Security** tab of the repository and open **Depe
 
 ## Deployment
 
-The [deployment/](deployment/) folder contains scripts that run Ansible playbooks against the `frontend` host group of your Ansible inventory (`/etc/ansible/hosts`, i.e. `raspberry01`), using the SSH key `$HOME/.ssh/ansible_rsa`. The app runs on the Pi as the `windfire-ui-react` systemd service, serving HTTPS on port **9443** (raspberry01 already uses `8443` for Keycloak and `8444` for windfire-security; `80`/`443` are left to nginx). The HTTP→HTTPS redirect listener is disabled. The scripts work from any folder.
+The [deployment/](deployment/) folder contains scripts that run Ansible playbooks against the `frontend` host group of your Ansible inventory (`/etc/ansible/hosts`, i.e. `raspberry01`), using the SSH key `$HOME/.ssh/ansible_rsa`. The app runs on the Pi as the `windfire-ui-react` systemd service, serving HTTPS on port **8445** (raspberry01 ports: `8443` Keycloak, `8444` windfire-security, `8445` this UI, `9443` reserved for step-ca; `80` and `443` unused). The HTTP→HTTPS redirect listener is disabled. The scripts work from any folder.
 
 ```bash
 deployment/deploy.sh [1] [--full]   # 1 = Raspberry; --full also upgrades packages and installs Node.js
@@ -401,7 +401,7 @@ Run `deploy.sh --full` the first time (raspberry01 has no Node.js yet); later de
    4. copies the server certificate (`0644`) and key (`0600`) to `ssl/`, and the Windfire Root CA to `/home/pi/opt/windfire/ssl/truststore`
    5. runs `npm ci --omit=dev` (only `express`, `helmet` and `dotenv` are installed)
 5. **systemd**: installs the unit from [windfire-ui-react.service.j2](deployment/raspberry/templates/windfire-ui-react.service.j2), then enables and starts the service. systemd restarts it 5 seconds after a failure and starts it at boot. Logs go to `/home/pi/windfire-ui-react/logs/windfire-ui-react.log`.
-6. **Health check**: waits for port 9443 and calls `https://raspberry01:9443/`, checking the certificate against the Windfire Root CA. If the check fails, it prints the last 50 lines of the journal and of the service log, and the deploy fails.
+6. **Health check**: waits for port 8445 and calls `https://raspberry01:8445/`, checking the certificate against the Windfire Root CA. If the check fails, it prints the last 50 lines of the journal and of the service log, and the deploy fails.
 
 Re-run `deploy.sh` whenever the code or a `VITE_*` value changes: every deploy rebuilds the bundle and replaces the remote folder.
 
@@ -409,6 +409,6 @@ Re-run `deploy.sh` whenever the code or a `VITE_*` value changes: every deploy r
 After confirmation, it runs [windfire-ui-react-undeploy.yaml](deployment/raspberry/windfire-ui-react-undeploy.yaml): stops and disables the service, removes its systemd unit and deletes `/home/pi/windfire-ui-react`. Node.js and the shared Windfire Root CA are left in place.
 
 ### After the first deploy
-* Add `https://raspberry01:9443/*` to the Keycloak client's **Valid redirect URIs** and `https://raspberry01:9443` to its **Web origins** (see [Keycloak Redirect URI Update for HTTPS](#keycloak-redirect-uri-update-for-https)), and allow the same origin in the Restaurants API CORS configuration.
-* Trust the Windfire Root CA in the browsers that open `https://raspberry01:9443`.
-* If a firewall is active on raspberry01 (e.g. `ufw`), allow TCP port 9443.
+* Add `https://raspberry01:8445/*` to the Keycloak client's **Valid redirect URIs** and `https://raspberry01:8445` to its **Web origins** (see [Keycloak Redirect URI Update for HTTPS](#keycloak-redirect-uri-update-for-https)), and allow the same origin in the Restaurants API CORS configuration.
+* Trust the Windfire Root CA in the browsers that open `https://raspberry01:8445`.
+* If a firewall is active on raspberry01 (e.g. `ufw`), allow TCP port 8445.
