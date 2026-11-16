@@ -19,8 +19,8 @@ node_min_major: 26
 # systemd service and application (.env) configuration
 service_name: windfire-ui-react
 app_description: Windfire UI React
-# Keycloak (8443) and windfire-security (8444) already listen on raspberry01; nginx may own 80/443
-https_port: 9443
+# raspberry01 ports: 8443 Keycloak, 8444 windfire-security, 9443 reserved for step-ca; 80/443 unused
+https_port: 8445
 # No HTTP -> HTTPS redirect listener: only the HTTPS port is opened
 http_redirect: "false"
 health_check_host: raspberry01
