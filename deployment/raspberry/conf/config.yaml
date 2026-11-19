@@ -1,4 +1,4 @@
-# SSH/sudo user; also owns the shared truststore under its home folder
+# SSH/sudo user; stages the application under its home folder
 user: pi
 group: pi
 # System user and group the service runs as: no login shell, no supplementary groups (not in sudo)
@@ -6,11 +6,10 @@ service_user: windfire-ui
 service_group: windfire-ui
 local_home_dir: "{{ lookup('env', 'HOME') }}"
 local_ssl_dir: "{{ local_home_dir }}/opt/windfire/ssl"
-local_truststore_dir: "{{ local_ssl_dir }}/truststore"
 local_certs_dir: "{{ local_ssl_dir }}/certs/raspberry"
 remote_home_dir: /home/pi
-remote_ssl_dir: "{{ remote_home_dir }}/opt/windfire/ssl"
-remote_truststore_dir: "{{ remote_ssl_dir }}/truststore"
+# Shared, root-owned CA folder installed by windfire-raspberry (configure-windfire-infra.sh --tags windfire_ca): this playbook only checks it
+windfire_ca_dir: /etc/windfire/ca
 windfire_ca_root_certificate: "WindfireRootCA.crt"
 # Exported by deploy.sh, which asks for the filenames; the fallbacks match the defaults in commons.sh
 windfire_server_certificate: "{{ lookup('env', 'WINDFIRE_SERVER_CERTIFICATE') | default('windfire-ui.crt', true) }}"

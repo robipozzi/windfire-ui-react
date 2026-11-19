@@ -31,7 +31,7 @@
         daemon_reload: yes
 
     # Task 3: Delete Windfire UI React directory on remote server
-    # Node.js, the pi user and the shared Windfire Root CA are left in place
+    # Node.js, the pi user and the shared CA certificates in /etc/windfire/ca (owned by windfire-raspberry) are left in place
     - name: Remove "{{ remote_windfire_ui_react_dir }}" folder and all its contents on remote server
       ansible.builtin.file:
         path: "{{ remote_windfire_ui_react_dir }}"
