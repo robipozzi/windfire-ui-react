@@ -258,7 +258,8 @@ printHelp() {
     echo
     echo -e "${BOLD}DESCRIPTION:${NC}"
     echo -e "Builds the Windfire UI React application locally, deploys it to the frontend"
-    echo -e "Ansible host group and runs it as the windfire-ui-react systemd service (HTTPS, port 8445)."
+    echo -e "Ansible host group and runs it as the windfire-ui-react systemd service (HTTPS, port 8445),"
+    echo -e "under the windfire-ui system user."
     echo
     echo -e "${BOLD}USAGE:${NC}"
     echo -e "    ./deploy.sh [1] [-f]"

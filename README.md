@@ -395,18 +395,19 @@ Run `deploy.sh --full` the first time (raspberry01 has no Node.js yet); later de
 2. **Configuration**: asks for `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM`, `VITE_KEYCLOAK_CLIENT_ID`, `VITE_RESTAURANTS_URL` (defaults from your local `.env`; the Restaurants URL defaults to `https://raspberry02:8081/restaurants` when `.env` has no value or a localhost one), asks again for `VITE_KEYCLOAK_URL` if it is relative (e.g. `/keycloak`, which `server.js` would refuse), and warns about values pointing at `localhost`. These values end up in the JavaScript bundle and are public: never put secrets in them.
 3. **Build**: runs `npm ci && npm run build` locally with those values (they override `.env`). The Pi never builds the app.
 4. **Playbook**: asks for the `pi` sudo password (`BECOME password`), then runs [windfire-ui-react-deploy.yaml](deployment/raspberry/windfire-ui-react-deploy.yaml) (or [windfire-ui-react-full-deploy.yaml](deployment/raspberry/windfire-ui-react-full-deploy.yaml) with `--full`, which first runs `apt` update/dist-upgrade and installs Node.js `26.x` from NodeSource), configured via **[conf/config.yaml](deployment/raspberry/conf/config.yaml)**:
-   1. checks that Node.js 26 or later is installed on the Pi, and stops the `windfire-ui-react` service
-   2. removes and recreates `/home/pi/windfire-ui-react`, and copies only `dist/`, `server.js`, `package.json` and `package-lock.json`
-   3. builds `.env` from [windfire-ui-react.env.j2](deployment/raspberry/templates/windfire-ui-react.env.j2) (port, TLS paths, the two URLs used for the CSP `connect-src`; mode `0600`)
-   4. copies the server certificate (`0644`) and key (`0600`) to `ssl/`, and the Windfire Root CA to `/home/pi/opt/windfire/ssl/truststore`
-   5. runs `npm ci --omit=dev` (only `express`, `helmet` and `dotenv` are installed)
-5. **systemd**: installs the unit from [windfire-ui-react.service.j2](deployment/raspberry/templates/windfire-ui-react.service.j2), then enables and starts the service. systemd restarts it 5 seconds after a failure and starts it at boot. Logs go to `/home/pi/windfire-ui-react/logs/windfire-ui-react.log`.
+   1. checks that Node.js 26 or later is installed on the Pi
+   2. creates the `windfire-ui` system user and group (shell `/usr/sbin/nologin`, no home, no supplementary groups, so not in `sudo`) and gives it traverse-only access (ACL `u:windfire-ui:--x`) to `/home/pi`, which is `0700`; then stops the `windfire-ui-react` service
+   3. removes and recreates `/home/pi/windfire-ui-react`, and copies only `dist/`, `server.js`, `package.json` and `package-lock.json`
+   4. builds `.env` from [windfire-ui-react.env.j2](deployment/raspberry/templates/windfire-ui-react.env.j2) (port, TLS paths, the two URLs used for the CSP `connect-src`; mode `0600`)
+   5. copies the service's own copy of the server certificate (`0444`) and key (`0400`) to `ssl/` (`0500`), owned by `windfire-ui`, and the Windfire Root CA to `/home/pi/opt/windfire/ssl/truststore`
+   6. runs `npm ci --omit=dev` (only `express`, `helmet` and `dotenv` are installed), then makes `windfire-ui` the owner of `/home/pi/windfire-ui-react` and everything in it
+5. **systemd**: installs the unit from [windfire-ui-react.service.j2](deployment/raspberry/templates/windfire-ui-react.service.j2), which runs the app as `windfire-ui` (`User=`/`Group=`) inside the sandbox (`ProtectHome=read-only`, because the app lives under `/home/pi`), then enables and starts the service. systemd restarts it 5 seconds after a failure and starts it at boot. Logs go to `/home/pi/windfire-ui-react/logs/windfire-ui-react.log`.
 6. **Health check**: waits for port 8445 and calls `https://raspberry01:8445/`, checking the certificate against the Windfire Root CA. If the check fails, it prints the last 50 lines of the journal and of the service log, and the deploy fails.
 
 Re-run `deploy.sh` whenever the code or a `VITE_*` value changes: every deploy rebuilds the bundle and replaces the remote folder.
 
 ### What `undeploy.sh` does
-After confirmation, it runs [windfire-ui-react-undeploy.yaml](deployment/raspberry/windfire-ui-react-undeploy.yaml): stops and disables the service, removes its systemd unit and deletes `/home/pi/windfire-ui-react`. Node.js and the shared Windfire Root CA are left in place.
+After confirmation, it runs [windfire-ui-react-undeploy.yaml](deployment/raspberry/windfire-ui-react-undeploy.yaml): stops and disables the service, removes its systemd unit, deletes `/home/pi/windfire-ui-react`, removes the `windfire-ui` ACL entry from `/home/pi` and deletes the `windfire-ui` user and group. Node.js and the shared Windfire Root CA are left in place.
 
 ### After the first deploy
 * Add `https://raspberry01:8445/*` to the Keycloak client's **Valid redirect URIs** and `https://raspberry01:8445` to its **Web origins** (see [Keycloak Redirect URI Update for HTTPS](#keycloak-redirect-uri-update-for-https)), and allow the same origin in the Restaurants API CORS configuration.
