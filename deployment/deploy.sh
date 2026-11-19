@@ -266,7 +266,7 @@ printHelp() {
     echo -e "4. Ask for the Keycloak and Restaurants API settings (defaults from .env)"
     echo -e "5. Build the React application with those settings (npm ci && npm run build)"
     echo -e "6. Run the Ansible playbook (asks for the sudo password of user pi on the Raspberry):"
-    echo -e "   check the shared Windfire Root CA in /etc/windfire/ca (installed by windfire-raspberry's deploy-windfire-ca.sh),"
+    echo -e "   check the shared Windfire Root CA in /etc/windfire/ca (installed by windfire-raspberry's configure-windfire-infra.sh --tags windfire_ca),"
     echo -e "   deploy, start the systemd service and health-check it"
     echo
     echo -e "${BOLD}EXIT CODES:${NC}"
