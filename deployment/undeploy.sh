@@ -79,7 +79,7 @@ confirmUndeploy()
         return
     fi
     local answer
-    read -r -p "${YELLOW_P}This stops and removes the windfire-ui-react service and application folder. Continue? [y/N]: ${END}" answer
+    read -r -p "${YELLOW_P}This stops and removes the windfire-ui-react service, application folder and windfire-ui system user. Continue? [y/N]: ${END}" answer
     case $answer in
         y|Y|yes|YES) ;;
         *)  echo -e "${CYAN}Undeploy cancelled${NC}"
@@ -114,8 +114,9 @@ printHelp() {
     echo -e "${BOLD}╚═════════════════════════════════════════════════════════╝${NC}"
     echo
     echo -e "${BOLD}DESCRIPTION:${NC}"
-    echo -e "Stops and removes the windfire-ui-react systemd service and the application"
-    echo -e "folder from the frontend Ansible host group. Node.js and the Windfire Root CA are left in place."
+    echo -e "Stops and removes the windfire-ui-react systemd service, the application folder and the"
+    echo -e "windfire-ui system user and group from the frontend Ansible host group."
+    echo -e "Node.js and the Windfire Root CA are left in place."
     echo
     echo -e "${BOLD}USAGE:${NC}"
     echo -e "    ./undeploy.sh [1] [-y]"

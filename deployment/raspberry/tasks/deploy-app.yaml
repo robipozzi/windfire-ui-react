@@ -2,6 +2,8 @@
 # Windfire UI React deployment tasks, shared by windfire-ui-react-deploy.yaml and windfire-ui-react-full-deploy.yaml.
 # The play runs with become (root): tasks that write under the pi home folder either set owner/group
 # or run as the connecting user with "become: false", so parent folders are never created as root.
+# The application is staged as pi (rsync and npm ci run as the connecting user), then the whole
+# application folder is handed over to the service user before the service starts.
 
 # Task 0: Check that deploy.sh exported the application configuration and built the React application
 - name: Check application configuration is set
@@ -42,6 +44,34 @@
     fail_msg: "Node.js {{ node_min_major }}+ not found on {{ inventory_hostname }} ({{ node_version.stdout | default('not installed', true) }}): run deployment/deploy.sh --full"
     success_msg: "Node.js {{ node_version.stdout }} found"
 
+# Task 1b: Create the system user the service runs as
+- name: Create "{{ service_group }}" system group
+  ansible.builtin.group:
+    name: "{{ service_group }}"
+    system: yes
+    state: present
+
+- name: Create "{{ service_user }}" system user (no login shell, no supplementary groups)
+  ansible.builtin.user:
+    name: "{{ service_user }}"
+    group: "{{ service_group }}"
+    groups: ""
+    append: no
+    system: yes
+    shell: /usr/sbin/nologin
+    home: /nonexistent
+    create_home: no
+    state: present
+
+# {{ remote_home_dir }} is 0700: let the service user traverse it (no read/list) to reach the application folder
+- name: Allow "{{ service_user }}" to traverse {{ remote_home_dir }}
+  ansible.posix.acl:
+    path: "{{ remote_home_dir }}"
+    entity: "{{ service_user }}"
+    etype: user
+    permissions: x
+    state: present
+
 # Task 2: Stop Windfire UI React service on remote server
 - name: Stop "{{ service_name }}" systemd service if running
   ansible.builtin.systemd:
@@ -55,7 +85,7 @@
     path: "{{ remote_windfire_ui_react_dir }}"
     state: absent
 
-- name: Create "{{ remote_windfire_ui_react_dir }}" folder and its ssl and logs subfolders on remote server
+- name: Create "{{ remote_windfire_ui_react_dir }}" folder and its logs subfolder on remote server
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
@@ -64,8 +94,15 @@
     mode: "0755"
   loop:
     - "{{ remote_windfire_ui_react_dir }}"
-    - "{{ remote_windfire_ui_react_dir }}/ssl"
     - "{{ remote_windfire_ui_react_dir }}/logs"
+
+- name: Create "{{ remote_windfire_ui_react_dir }}/ssl" folder, accessible only by {{ service_user }}
+  ansible.builtin.file:
+    path: "{{ remote_windfire_ui_react_dir }}/ssl"
+    state: directory
+    owner: "{{ service_user }}"
+    group: "{{ service_group }}"
+    mode: "0500"
 
 # Task 4: Copy React build and production server to remote server
 # Only what the production server needs: no sources, node_modules, local .env or local certificates
@@ -92,26 +129,26 @@
   ansible.builtin.template:
     src: "{{ src_dir }}/templates/windfire-ui-react.env.j2"
     dest: "{{ remote_windfire_ui_react_dir }}/.env"
-    owner: "{{ user }}"
-    group: "{{ group }}"
+    owner: "{{ service_user }}"
+    group: "{{ service_group }}"
     mode: "0600"
 
-# Task 6: Copy TLS material to remote server
+# Task 6: Copy TLS material to remote server: the service user's own copy of the certificate and key
 - name: Copy certificate {{ windfire_server_certificate }} from {{ local_certs_dir }} to "{{ remote_windfire_ui_react_dir }}/ssl" directory on remote server
   copy:
     src: "{{ local_certs_dir }}/{{ windfire_server_certificate }}"
     dest: "{{ remote_windfire_ui_react_dir }}/ssl/{{ windfire_server_certificate }}"
-    owner: "{{ user }}"
-    group: "{{ group }}"
-    mode: "0644"
+    owner: "{{ service_user }}"
+    group: "{{ service_group }}"
+    mode: "0444"
 
 - name: Copy key {{ windfire_server_key }} from {{ local_certs_dir }} to "{{ remote_windfire_ui_react_dir }}/ssl" directory on remote server
   copy:
     src: "{{ local_certs_dir }}/{{ windfire_server_key }}"
     dest: "{{ remote_windfire_ui_react_dir }}/ssl/{{ windfire_server_key }}"
-    owner: "{{ user }}"
-    group: "{{ group }}"
-    mode: "0600"
+    owner: "{{ service_user }}"
+    group: "{{ service_group }}"
+    mode: "0400"
 
 - name: Ensure remote truststore directory {{ remote_truststore_dir }} exists
   file:
@@ -134,6 +171,15 @@
     cmd: npm ci --omit=dev --no-audit --no-fund
     chdir: "{{ remote_windfire_ui_react_dir }}"
   become: false
+
+# Task 7b: Hand the application folder over to the service user (owner/group only: file modes are kept)
+- name: Change owner of "{{ remote_windfire_ui_react_dir }}" and its contents to {{ service_user }}
+  ansible.builtin.file:
+    path: "{{ remote_windfire_ui_react_dir }}"
+    state: directory
+    recurse: yes
+    owner: "{{ service_user }}"
+    group: "{{ service_group }}"
 
 # Task 8: Install systemd unit
 - name: Template Windfire UI React systemd unit
