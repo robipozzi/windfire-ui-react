@@ -28,6 +28,38 @@
     msg: "{{ local_windfire_ui_react_dir }}/dist/index.html not found: run deployment/deploy.sh, which builds the application"
   when: not local_build.stat.exists
 
+# Task 0b: Check the shared CA certificates before the running service is touched: windfire-raspberry
+# (configure-windfire-infra.sh --tags windfire_ca) owns {{ windfire_ca_dir }}, this playbook never writes it.
+# The service makes no outbound TLS call: only the health check uses the Windfire Root CA.
+- name: Check the shared CA folder {{ windfire_ca_dir }} and certificates
+  stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ windfire_ca_dir }}"
+    - "{{ windfire_ca_dir }}/{{ windfire_ca_root_certificate }}"
+  register: windfire_ca_stat
+
+- name: Fail if the shared CA folder or a CA certificate is missing or writable by anyone but root
+  fail:
+    msg: >-
+      {{ item.item }} on {{ inventory_hostname }} is missing or not root:root
+      {{ '0755' if item.item == windfire_ca_dir else '0644' }}: run ./configure-windfire-infra.sh --tags windfire_ca in windfire-raspberry first
+  when: >-
+    not item.stat.exists
+    or item.stat.pw_name != 'root' or item.stat.gr_name != 'root'
+    or (item.item == windfire_ca_dir and (not item.stat.isdir or item.stat.mode != '0755'))
+    or (item.item != windfire_ca_dir and (not item.stat.isreg or item.stat.mode != '0644'))
+  loop: "{{ windfire_ca_stat.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Check each CA certificate in {{ windfire_ca_dir }} is a valid certificate
+  command: "openssl x509 -noout -in {{ windfire_ca_dir }}/{{ item }}"
+  changed_when: false
+  check_mode: false
+  loop:
+    - "{{ windfire_ca_root_certificate }}"
+
 # Task 1: Check Node.js runtime on remote server
 - name: Get Node.js version on remote server
   command: node --version
@@ -134,6 +166,7 @@
     mode: "0600"
 
 # Task 6: Copy TLS material to remote server: the service user's own copy of the certificate and key
+# (no CA certificate is copied: the health check reads the shared {{ windfire_ca_dir }})
 - name: Copy certificate {{ windfire_server_certificate }} from {{ local_certs_dir }} to "{{ remote_windfire_ui_react_dir }}/ssl" directory on remote server
   copy:
     src: "{{ local_certs_dir }}/{{ windfire_server_certificate }}"
@@ -149,21 +182,6 @@
     owner: "{{ service_user }}"
     group: "{{ service_group }}"
     mode: "0400"
-
-- name: Ensure remote truststore directory {{ remote_truststore_dir }} exists
-  file:
-    path: "{{ remote_truststore_dir }}"
-    state: directory
-    mode: "{{ mode }}"
-  become: false
-
-- name: Copy {{ windfire_ca_root_certificate }} to "{{ remote_truststore_dir }}" directory on remote server
-  copy:
-    src: "{{ local_truststore_dir }}/{{ windfire_ca_root_certificate }}"
-    dest: "{{ remote_truststore_dir }}/{{ windfire_ca_root_certificate }}"
-    owner: "{{ user }}"
-    group: "{{ group }}"
-    mode: "0644"
 
 # Task 7: Install production Node.js modules
 - name: Install production Node.js modules with npm ci
@@ -211,7 +229,7 @@
     - name: Call https://{{ health_check_host }}:{{ https_port }}/
       uri:
         url: "https://{{ health_check_host }}:{{ https_port }}/"
-        ca_path: "{{ remote_truststore_dir }}/{{ windfire_ca_root_certificate }}"
+        ca_path: "{{ windfire_ca_dir }}/{{ windfire_ca_root_certificate }}"
         status_code: 200
       register: health
       until: health.status == 200
