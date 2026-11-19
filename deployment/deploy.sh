@@ -80,7 +80,6 @@ deployToRaspberry()
     echo -e "${BLU}Deploy Windfire UI React component to Raspberry Pi ...${NC}"
     echo
     checkPrerequisites
-    checkRootCA
     collectCertificateNames
     checkSSLCertificates
     collectAppConfig
@@ -121,18 +120,6 @@ checkPrerequisites()
         exit 1
     fi
     echo -e "${GREEN}Ansible SSH key found: $ANSIBLE_SSH_KEY${NC}"
-    echo
-}
-
-checkRootCA()
-{
-    printBanner "Check Windfire Root CA"
-    if [ ! -f "$WINDFIRE_DEFAULT_TRUSTSTORE_DIR/$WINDFIRE_ROOT_CA_CERTIFICATE" ]; then
-        echo -e "${RED}Error: Windfire Root CA $WINDFIRE_DEFAULT_TRUSTSTORE_DIR/$WINDFIRE_ROOT_CA_CERTIFICATE not found${NC}"
-        echo -e "${RED}Create it with windfire-security/ssl/createRootCA.sh first${NC}"
-        exit 1
-    fi
-    echo -e "${GREEN}Windfire Root CA found in $WINDFIRE_DEFAULT_TRUSTSTORE_DIR${NC}"
     echo
 }
 
@@ -274,12 +261,12 @@ printHelp() {
     echo
     echo -e "${BOLD}WHAT THIS SCRIPT DOES:${NC}"
     echo -e "1. Check that ansible-playbook, npm and the Ansible SSH key are available"
-    echo -e "2. Check that the Windfire Root CA exists"
-    echo -e "3. Ask for the server certificate and key filenames (defaults: $WINDFIRE_SERVER_CERTIFICATE, $WINDFIRE_SERVER_KEY)"
-    echo -e "4. Check the production server certificate and key (generated if missing)"
-    echo -e "5. Ask for the Keycloak and Restaurants API settings (defaults from .env)"
-    echo -e "6. Build the React application with those settings (npm ci && npm run build)"
-    echo -e "7. Run the Ansible playbook (asks for the sudo password of user pi on the Raspberry):"
+    echo -e "2. Ask for the server certificate and key filenames (defaults: $WINDFIRE_SERVER_CERTIFICATE, $WINDFIRE_SERVER_KEY)"
+    echo -e "3. Check the production server certificate and key (generated if missing)"
+    echo -e "4. Ask for the Keycloak and Restaurants API settings (defaults from .env)"
+    echo -e "5. Build the React application with those settings (npm ci && npm run build)"
+    echo -e "6. Run the Ansible playbook (asks for the sudo password of user pi on the Raspberry):"
+    echo -e "   check the shared Windfire Root CA in /etc/windfire/ca (installed by windfire-raspberry's deploy-windfire-ca.sh),"
     echo -e "   deploy, start the systemd service and health-check it"
     echo
     echo -e "${BOLD}EXIT CODES:${NC}"
