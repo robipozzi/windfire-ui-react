@@ -286,7 +286,7 @@ The dev server will be available at `https://localhost:3000`. The port is fixed,
 
 `X-Powered-By` is disabled. `index.html` (including the SPA fallback for every unknown route) is served with `Cache-Control: no-store`. The content-hashed bundles under `dist/assets/` are served with `Cache-Control: public, max-age=31536000, immutable`.
 
-The `connect-src` origins come from `VITE_KEYCLOAK_URL` and `VITE_RESTAURANTS_URL`, which `server.js` reads once at startup. Run the server with the same `.env` used for `npm run build`, and restart it after changing either URL. Otherwise the browser will block the API calls.
+The `connect-src` origins come from `VITE_KEYCLOAK_URL` and `VITE_RESTAURANTS_URL`, which `server.js` reads once at startup. `VITE_RESTAURANTS_URL` may also be a path on the UI's own origin, such as `/restaurants`: it is then covered by `'self'` and adds no origin. A protocol-relative value (`//host/...`) or any other value that is neither is rejected at startup, as is a relative `VITE_KEYCLOAK_URL`. Run the server with the same `.env` used for `npm run build`, and restart it after changing either URL. Otherwise the browser will block the API calls.
 
 ### Keycloak Redirect URI Update for HTTPS
 
@@ -379,6 +379,7 @@ The [deployment/](deployment/) folder contains scripts that run Ansible playbook
 deployment/deploy.sh [1] [--full]   # 1 = Raspberry; --full also upgrades packages and installs Node.js
 deployment/undeploy.sh [1] [-y]     # -y skips the confirmation prompt (not the sudo password)
 deployment/deploy.sh --help
+deployment/deploy.sh 1 --profile public   # build for the public hostname (Cloudflare Tunnel)
 ```
 
 Run `deploy.sh --full` the first time (raspberry01 has no Node.js yet); later deploys only need `deploy.sh`.
@@ -392,7 +393,7 @@ Run `deploy.sh --full` the first time (raspberry01 has no Node.js yet); later de
 
 ### What `deploy.sh` does
 1. **Pre-flight checks**: checks for `ansible-playbook`, `npm` and the SSH key, and stops with a red error if one is missing. It then asks for the server certificate and key filenames (defaults `windfire-ui.crt` / `windfire-ui.key`). If those files are missing from `$HOME/opt/windfire/ssl/certs/raspberry`, it runs [generate-ssl-cert.sh](ssl/generate-ssl-cert.sh) `-e raspberry` (CN/SAN `raspberry01`).
-2. **Configuration**: asks for `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM`, `VITE_KEYCLOAK_CLIENT_ID`, `VITE_RESTAURANTS_URL` (defaults from your local `.env`; the Restaurants URL defaults to `https://raspberry02:8081/restaurants` when `.env` has no value or a localhost one), asks again for `VITE_KEYCLOAK_URL` if it is relative (e.g. `/keycloak`, which `server.js` would refuse), and warns about values pointing at `localhost`. These values end up in the JavaScript bundle and are public: never put secrets in them.
+2. **Configuration**: asks for the deployment profile (`--profile lan|public`, default `lan`, see [Deployment profiles](#deployment-profiles)), then for `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM`, `VITE_KEYCLOAK_CLIENT_ID`, `VITE_RESTAURANTS_URL` (the two URLs default to the profile's values, realm and client id to your local `.env`). It asks again for `VITE_KEYCLOAK_URL` if it is relative (e.g. `/keycloak`, which `server.js` would refuse) and for `VITE_RESTAURANTS_URL` if it is neither an absolute URL nor a same-origin path, and warns about values pointing at `localhost`. These values end up in the JavaScript bundle and are public: never put secrets in them.
 3. **Build**: runs `npm ci && npm run build` locally with those values (they override `.env`). The Pi never builds the app.
 4. **Playbook**: asks for the `pi` sudo password (`BECOME password`), then runs [windfire-ui-react-deploy.yaml](deployment/raspberry/windfire-ui-react-deploy.yaml) (or [windfire-ui-react-full-deploy.yaml](deployment/raspberry/windfire-ui-react-full-deploy.yaml) with `--full`, which first runs `apt` update/dist-upgrade and installs Node.js `26.x` from NodeSource), configured via **[conf/config.yaml](deployment/raspberry/conf/config.yaml)**:
    1. checks that `/etc/windfire/ca` is `root:root 0755` and holds `WindfireRootCA.crt` as a valid `root:root 0644` certificate (run `./configure-windfire-infra.sh --tags windfire_ca` in windfire-raspberry first), and that Node.js 26 or later is installed on the Pi
@@ -405,6 +406,16 @@ Run `deploy.sh --full` the first time (raspberry01 has no Node.js yet); later de
 6. **Health check**: waits for port 8445 and calls `https://raspberry01:8445/`, checking the certificate against `/etc/windfire/ca/WindfireRootCA.crt`. If the check fails, it prints the last 50 lines of the journal and of the service log, and the deploy fails.
 
 Re-run `deploy.sh` whenever the code or a `VITE_*` value changes: every deploy rebuilds the bundle and replaces the remote folder.
+
+### Deployment profiles
+`deployment_profiles` in [conf/config.yaml](deployment/raspberry/conf/config.yaml) holds the URLs bundled into the build for each way of reaching the app:
+
+| Profile | `VITE_KEYCLOAK_URL` | `VITE_RESTAURANTS_URL` | Browser reaches the app at |
+|---|---|---|---|
+| `lan` (default) | `https://raspberry01:8443` | `https://raspberry02:8081/restaurants` | `https://raspberry01:8445` |
+| `public` | `https://auth.<public_domain>` (`windfire.cc`) | `/restaurants` (same origin, routed by the tunnel) | the public hostname through the Cloudflare Tunnel |
+
+A bundle serves one profile: re-run `deploy.sh` with the other `--profile` to switch. With `public`, `server.js` puts `https://auth.<public_domain>` in `connect-src` and `form-action`, and the Restaurants API is covered by `'self'`. `auth.<public_domain>` sits behind Cloudflare Access, so the token calls must carry its `CF_Authorization` cookie: `keycloak-js` sends both the code exchange and the refresh with `credentials: 'include'` (guarded by `src/auth/keycloakCredentials.test.js`), as simple CORS requests with no preflight. Outside this repository, the public UI origin must be in the Keycloak client's **Valid redirect URIs** and **Web origins**, and the tunnel must route `/restaurants` on the UI hostname to the Restaurants API.
 
 ### What `undeploy.sh` does
 After confirmation, it runs [windfire-ui-react-undeploy.yaml](deployment/raspberry/windfire-ui-react-undeploy.yaml): stops and disables the service, removes its systemd unit, deletes `/home/pi/windfire-ui-react`, removes the `windfire-ui` ACL entry from `/home/pi` and deletes the `windfire-ui` user and group. Node.js and the shared CA certificates in `/etc/windfire/ca` (owned by windfire-raspberry) are left in place.

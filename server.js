@@ -14,7 +14,22 @@ const helmet  = require('helmet');
 // Keycloak is served over HTTPS and the browser talks to it directly, so
 // VITE_KEYCLOAK_URL must be an absolute URL. A relative value such as
 // /keycloak belonged to the removed /keycloak proxy and is rejected at startup.
+// VITE_RESTAURANTS_URL may be an absolute URL or a same-origin path such as
+// /restaurants (public profile: the API is routed on the UI's own hostname).
+// A protocol-relative //host value would point to another origin, so it is
+// rejected like any other value that is neither.
 // ---------------------------------------------------------------------------
+const originOf = (url) => {
+  try {
+    const { origin } = new URL(url);
+    return origin === 'null' ? null : origin; // opaque origins (e.g. foo:bar) have none
+  } catch {
+    return null;
+  }
+};
+
+const isSameOriginPath = (url) => url.startsWith('/') && !url.startsWith('//');
+
 const validateConfig = (env) => {
   const keycloakUrl = env.VITE_KEYCLOAK_URL || '';
   if (keycloakUrl.startsWith('/')) {
@@ -24,13 +39,14 @@ const validateConfig = (env) => {
       '(e.g. https://raspberry01:8443), then rebuild and restart.'
     );
   }
-};
 
-const originOf = (url) => {
-  try {
-    return new URL(url).origin;
-  } catch {
-    return null;
+  const restaurantsUrl = env.VITE_RESTAURANTS_URL || '';
+  if (restaurantsUrl && !isSameOriginPath(restaurantsUrl) && !originOf(restaurantsUrl)) {
+    throw new Error(
+      `VITE_RESTAURANTS_URL is neither an absolute URL nor a same-origin path ("${restaurantsUrl}"): ` +
+      'set VITE_RESTAURANTS_URL in .env to an https:// URL (e.g. https://raspberry02:8081/restaurants) ' +
+      'or to a path on this origin (e.g. /restaurants), then rebuild and restart.'
+    );
   }
 };
 
@@ -50,13 +66,16 @@ const createApp = ({ env = process.env, buildDir = path.join(__dirname, 'dist') 
   // -------------------------------------------------------------------------
   // Security headers
   // connect-src allows the origins of the Keycloak and Restaurants API URLs,
-  // read once at startup. form-action allows Keycloak for the login and
-  // logout redirects. No frame-src: keycloak-js runs with checkLoginIframe off.
+  // read once at startup; a same-origin Restaurants path is covered by 'self'.
+  // form-action allows Keycloak for the login and logout redirects.
+  // No frame-src: keycloak-js runs with checkLoginIframe off.
   // -------------------------------------------------------------------------
   const keycloakOrigin = originOf(env.VITE_KEYCLOAK_URL);
+  const restaurantsUrl = env.VITE_RESTAURANTS_URL || '';
+  const restaurantsOrigin = isSameOriginPath(restaurantsUrl) ? null : originOf(restaurantsUrl);
   const connectSrc = ["'self'", ...new Set([
     keycloakOrigin,
-    originOf(env.VITE_RESTAURANTS_URL),
+    restaurantsOrigin,
   ].filter(Boolean))];
   const formAction = ["'self'", keycloakOrigin].filter(Boolean);
 

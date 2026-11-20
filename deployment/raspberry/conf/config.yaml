@@ -27,3 +27,14 @@ https_port: 8445
 # No HTTP -> HTTPS redirect listener: only the HTTPS port is opened
 http_redirect: "false"
 health_check_host: raspberry01
+# Deployment profiles: deploy.sh --profile picks one and offers its URLs as defaults (the prompts allow overriding).
+# The chosen values are bundled into dist/ and exported to the playbook, which writes them to the server's .env.
+public_domain: windfire.cc
+deployment_profiles:
+  lan:
+    vite_keycloak_url: https://raspberry01:8443
+    vite_restaurants_url: https://raspberry02:8081/restaurants
+  public:
+    # Through the Cloudflare Tunnel: Keycloak on its own hostname, the Restaurants API on the UI's own origin
+    vite_keycloak_url: "https://auth.{{ public_domain }}"
+    vite_restaurants_url: /restaurants
