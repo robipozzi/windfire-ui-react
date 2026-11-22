@@ -385,6 +385,7 @@ Run `deploy.sh --full` the first time (raspberry01 has no Node.js yet); later de
 
 ### What you need before deploying
 * Ansible (`ansible-playbook`) and Node.js/npm installed locally, and the SSH key `$HOME/.ssh/ansible_rsa`
+* if that key has a passphrase: every script here that runs Ansible loads it into a private `ssh-agent` through `runWithAnsibleSshKey` in [commons.sh](commons.sh). On macOS it uses Apple's `/usr/bin/ssh-add --apple-use-keychain`, so the passphrase is asked on the first run, saved in your login Keychain and read from there afterwards. Elsewhere it is asked on every run
 * the sudo password of user `pi` on the Pi: sudo is not passwordless, so every playbook run asks for it as `BECOME password` ([ansible.cfg](deployment/raspberry/ansible.cfg) sets `become_ask_pass`)
 * `rsync` both locally and on the Pi (used by the Ansible `synchronize` module)
 * the shared Windfire Root CA in `/etc/windfire/ca/WindfireRootCA.crt` on raspberry01 (`root:root 0644`), installed by `./configure-windfire-infra.sh --tags windfire_ca` in [windfire-raspberry](https://github.com/robipozzi/windfire-raspberry) from `$HOME/opt/windfire/ssl/truststore` (create the CA with `windfire-security/ssl/createRootCA.sh`). Only the health check uses it, and this deploy never copies it
