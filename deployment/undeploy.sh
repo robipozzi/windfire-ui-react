@@ -93,12 +93,9 @@ undeployFromRaspberry()
     ## Undeploy Windfire UI React component from remote Raspberry box
     echo -e "${BLU}Undeploy Windfire UI React component from Raspberry Pi ...${NC}"
     confirmUndeploy
-    eval "$(ssh-agent -s)" >/dev/null
-    trap 'ssh-agent -k >/dev/null' EXIT
-    ssh-add "$ANSIBLE_SSH_KEY" || { echo -e "${RED}Error: ssh-add $ANSIBLE_SSH_KEY failed${NC}"; exit 1; }
     export ANSIBLE_CONFIG=$PWD/raspberry/ansible.cfg
     echo -e "${YELLOW}Ansible will ask for the BECOME password: the sudo password of user pi on the Raspberry${NC}"
-    if ansible-playbook raspberry/windfire-ui-react-undeploy.yaml; then
+    if runWithAnsibleSshKey ansible-playbook raspberry/windfire-ui-react-undeploy.yaml; then
         echo -e "${GREEN}Windfire UI React removed from Raspberry Pi${NC}"
         echo
     else

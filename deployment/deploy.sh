@@ -278,12 +278,9 @@ runPlaybook()
 {
     local playbook=$1
     printBanner "Run Ansible playbook $playbook"
-    eval "$(ssh-agent -s)" >/dev/null
-    trap 'ssh-agent -k >/dev/null' EXIT
-    ssh-add "$ANSIBLE_SSH_KEY" || { echo -e "${RED}Error: ssh-add $ANSIBLE_SSH_KEY failed${NC}"; exit 1; }
     export ANSIBLE_CONFIG=$PWD/raspberry/ansible.cfg
     echo -e "${YELLOW}Ansible will ask for the BECOME password: the sudo password of user pi on the Raspberry${NC}"
-    if ansible-playbook "$playbook"; then
+    if runWithAnsibleSshKey ansible-playbook "$playbook"; then
         echo -e "${GREEN}Windfire UI React deployed and running on Raspberry Pi${NC}"
         echo
     else
