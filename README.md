@@ -332,7 +332,7 @@ Keycloak's `windfire` realm has a public hostname (`https://auth.windfire.cc`, t
 - with `VITE_KEYCLOAK_URL=https://raspberry01:8443`, Keycloak's login form still posts to `auth.windfire.cc`. That goes through Cloudflare Access, and Keycloak's session cookie is lost (an unstyled login page, then "Cookie not found" or an Access page);
 - with `VITE_KEYCLOAK_URL=https://auth.windfire.cc`, the login works, but the token request from `localhost` is cross-site. The `CF_Authorization` cookie isn't sent with it, Access blocks it, and the app shows "Sign-in failed".
 
-Locally, use the `windfire-dev` realm instead. It is a copy of `windfire` whose login and token issuer stay on `https://raspberry01:8443`, created by `keycloak/deployment/create-dev-realm.sh` in [windfire-security](https://github.com/robipozzi/windfire-security). Production keeps using `windfire` through the public hostname. In `.env`:
+Locally, use the `windfire-dev` realm instead. It is a copy of `windfire` whose login and token issuer stay on `https://raspberry01:8443` (its Frontend URL is pinned there, see [windfire-security](https://github.com/robipozzi/windfire-security)). Production keeps using `windfire` through the public hostname. In `.env`:
 ```
 VITE_KEYCLOAK_URL=https://raspberry01:8443
 VITE_KEYCLOAK_REALM=windfire-dev
