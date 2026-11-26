@@ -326,6 +326,19 @@ Repeat this on every machine a browser is used against this app — the dev Mac,
 
 > See [KEYCLOAK_HTTPS_PLAN.md](KEYCLOAK_HTTPS_PLAN.md) for the working notes on migrating Keycloak and the Restaurants backend to HTTPS end-to-end, including the mixed-content proxy rationale above.
 
+### Logging in locally: the windfire-dev realm
+
+Keycloak's `windfire` realm has a public hostname (`https://auth.windfire.cc`, through the Cloudflare Tunnel and Cloudflare Access), so a UI on `localhost` can't log in to it:
+- with `VITE_KEYCLOAK_URL=https://raspberry01:8443`, Keycloak's login form still posts to `auth.windfire.cc`. That goes through Cloudflare Access, and Keycloak's session cookie is lost (an unstyled login page, then "Cookie not found" or an Access page);
+- with `VITE_KEYCLOAK_URL=https://auth.windfire.cc`, the login works, but the token request from `localhost` is cross-site. The `CF_Authorization` cookie isn't sent with it, Access blocks it, and the app shows "Sign-in failed".
+
+Locally, use the `windfire-dev` realm instead. It is a copy of `windfire` whose login and token issuer stay on `https://raspberry01:8443`, created by `keycloak/deployment/create-dev-realm.sh` in [windfire-security](https://github.com/robipozzi/windfire-security). Production keeps using `windfire` through the public hostname. In `.env`:
+```
+VITE_KEYCLOAK_URL=https://raspberry01:8443
+VITE_KEYCLOAK_REALM=windfire-dev
+```
+The client ID stays the same: the dev realm has the same clients. Its users are its own: create them in `windfire-dev`, with their `windfire-restaurants-api` roles. The browser must trust the Windfire Keycloak Root CA (see [Trusting Keycloak's self-signed certificate](#trusting-keycloaks-self-signed-certificate)).
+
 ### Running locally against the Restaurants API
 
 When the app runs locally, the Restaurants page may show `Failed to load restaurants: Cannot reach the Restaurants API (network, certificate or CORS error).`, and Safari's console reports `Preflight response is not successful. Status code: 403` (Chrome: `Failed to fetch` with a CORS error).
@@ -334,7 +347,7 @@ The cause is CORS. Because the `Authorization` header is sent, the browser first
 
 To develop locally, run the Restaurants backend locally as well:
 
-1. In `windfire-restaurants-backend`, run `./start-windfire-restaurants-backend.sh`. Its default CORS origin is `https://localhost`, where `./start.sh` serves this app. If you use `./start.sh --dev` (port 3000), enter `http://localhost:3000` (or `https://localhost:3000` with dev HTTPS) at the CORS prompt instead.
+1. In `windfire-restaurants-backend`, run `./start-windfire-restaurants-backend.sh`. Accept its default realm `windfire-dev` (see [Logging in locally](#logging-in-locally-the-windfire-dev-realm)) and issuer. Its default CORS origins are `https://localhost` (`./start.sh`) and `https://localhost:3000` (`./start.sh --dev` with dev HTTPS). Over plain HTTP, enter `http://localhost:3000` at the CORS prompt instead.
 2. In `.env`, set:
    ```
    VITE_RESTAURANTS_URL=https://localhost:8081/restaurants
