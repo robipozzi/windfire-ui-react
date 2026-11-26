@@ -16,6 +16,20 @@
     fail_msg: "VITE_KEYCLOAK_URL, VITE_KEYCLOAK_REALM, VITE_KEYCLOAK_CLIENT_ID and VITE_RESTAURANTS_URL must be exported (run deployment/deploy.sh)"
     quiet: true
 
+# Public or LAN-only access, as recorded on the Pi by windfire-raspberry's switch-windfire-exposure.sh
+# (/etc/ansible/facts.d/windfire.fact, read as ansible_local.windfire.exposure; no file means public). A bundle built
+# for the other mode would send browsers to a Keycloak hostname whose tokens no service accepts.
+- name: Check the bundle's Keycloak URL matches the recorded exposure mode
+  ansible.builtin.fail:
+    msg: >-
+      Windfire is {{ windfire_exposure }} (recorded by windfire-raspberry switch-windfire-exposure.sh), but this build
+      uses VITE_KEYCLOAK_URL={{ vite_keycloak_url }} instead of {{ windfire_exposure_keycloak_url }}: run
+      deploy.sh again with --profile {{ windfire_exposure }}, or switch Windfire with ./switch-windfire-exposure.sh
+  vars:
+    windfire_exposure: "{{ ansible_local.windfire.exposure | default('public') }}"
+    windfire_exposure_keycloak_url: "{{ deployment_profiles[windfire_exposure].vite_keycloak_url | default('') }}"
+  when: windfire_exposure_keycloak_url | length > 0 and vite_keycloak_url != windfire_exposure_keycloak_url
+
 - name: Check local React build {{ local_windfire_ui_react_dir }}/dist exists
   ansible.builtin.stat:
     path: "{{ local_windfire_ui_react_dir }}/dist/index.html"
