@@ -6,7 +6,10 @@ source ../commons.sh
 
 # ===== DEFAULT VALUES =====
 FULL_DEPLOY=false
-DEFAULT_RESTAURANTS_URL=https://raspberry02:8081/restaurants
+# Deployment profiles (URLs bundled into the build) are defined in raspberry/conf/config.yaml
+DEPLOYMENT_PROFILE=
+DEFAULT_DEPLOYMENT_PROFILE=lan
+CONFIG_FILE=raspberry/conf/config.yaml
 
 # ===== MAIN FUNCTION =====
 main() {
@@ -36,6 +39,14 @@ parseArgs()
             -f|--full)
                 FULL_DEPLOY=true
                 shift
+                ;;
+            -p|--profile)
+                if [[ -z "$2" || "$2" == -* ]]; then
+                    echo -e "${RED}Error: $1 needs a profile name (lan or public)${NC}"
+                    exit 1
+                fi
+                DEPLOYMENT_PROFILE=$2
+                shift 2
                 ;;
             -*)
                 echo -e "${RED}Error: Unknown option '$1'${NC}"
@@ -82,6 +93,7 @@ deployToRaspberry()
     checkPrerequisites
     collectCertificateNames
     checkSSLCertificates
+    selectDeploymentProfile
     collectAppConfig
     buildApp
     if [ "$FULL_DEPLOY" == true ]; then
@@ -140,6 +152,50 @@ checkSSLCertificates()
 }
 
 # ===== APPLICATION CONFIGURATION FUNCTIONS =====
+# Print deployment_profiles[<profile>][<key>] from $CONFIG_FILE, rendered by Ansible (values may be templated)
+getProfileValue()
+{
+    local profile=$1
+    local key=$2
+    ANSIBLE_LOCALHOST_WARNING=false ANSIBLE_LOAD_CALLBACK_PLUGINS=true ANSIBLE_STDOUT_CALLBACK=json \
+        ansible localhost -i localhost, -c local -m ansible.builtin.debug \
+        -a "msg={{ deployment_profiles[profile][key] }}" \
+        -e "@$CONFIG_FILE" -e "profile=$profile" -e "key=$key" 2>/dev/null \
+    | python3 -c '
+import json, sys
+try:
+    result = json.load(sys.stdin)["plays"][0]["tasks"][0]["hosts"]["localhost"]
+except (ValueError, LookupError):
+    sys.exit(1)
+if result.get("failed") or not isinstance(result.get("msg"), str) or not result["msg"]:
+    sys.exit(1)
+print(result["msg"])'
+}
+
+selectDeploymentProfile()
+{
+    printBanner "Select deployment profile"
+    if [[ -z "$DEPLOYMENT_PROFILE" ]]; then
+        DEPLOYMENT_PROFILE=$(inputWithDefault "deployment profile, lan or public (see $CONFIG_FILE)" "$DEFAULT_DEPLOYMENT_PROFILE")
+    fi
+    PROFILE_KEYCLOAK_URL=$(getProfileValue "$DEPLOYMENT_PROFILE" vite_keycloak_url)
+    PROFILE_RESTAURANTS_URL=$(getProfileValue "$DEPLOYMENT_PROFILE" vite_restaurants_url)
+    if [[ -z "$PROFILE_KEYCLOAK_URL" || -z "$PROFILE_RESTAURANTS_URL" ]]; then
+        echo -e "${RED}Error: profile '$DEPLOYMENT_PROFILE' not found in deployment_profiles of deployment/$CONFIG_FILE (or a URL is missing)${NC}"
+        exit 1
+    fi
+    export DEPLOYMENT_PROFILE
+    echo -e "${GREEN}Profile $DEPLOYMENT_PROFILE: Keycloak $PROFILE_KEYCLOAK_URL, Restaurants API $PROFILE_RESTAURANTS_URL${NC}"
+    echo
+}
+
+# Same rule as server.js: an absolute http(s) URL or a same-origin path (/restaurants), never //host
+isValidRestaurantsUrl()
+{
+    local value=$1
+    [[ "$value" =~ ^https?://[^/]+ ]] || [[ "$value" == /* && "$value" != //* ]]
+}
+
 inputWithDefault()
 {
     local label=$1
@@ -180,7 +236,7 @@ collectAppConfig()
     printBanner "Collect application configuration"
     echo -e "${WHITE}These values are bundled into the React build and are public: do not use secrets here${NC}"
     local envFile=../.env
-    VITE_KEYCLOAK_URL=$(inputWithDefault "Keycloak URL (VITE_KEYCLOAK_URL)" "$(getEnvFileValue $envFile VITE_KEYCLOAK_URL)")
+    VITE_KEYCLOAK_URL=$(inputWithDefault "Keycloak URL (VITE_KEYCLOAK_URL)" "$PROFILE_KEYCLOAK_URL")
     # server.js refuses to start with a relative Keycloak URL (left over from the removed /keycloak proxy)
     while [[ "$VITE_KEYCLOAK_URL" == /* ]]; do
         echo -e "${RED}VITE_KEYCLOAK_URL=$VITE_KEYCLOAK_URL is relative: the /keycloak proxy has been removed. Enter the absolute https:// URL of Keycloak (and fix it in .env)${NC}"
@@ -188,13 +244,12 @@ collectAppConfig()
     done
     VITE_KEYCLOAK_REALM=$(inputWithDefault "Keycloak realm (VITE_KEYCLOAK_REALM)" "$(getEnvFileValue $envFile VITE_KEYCLOAK_REALM)")
     VITE_KEYCLOAK_CLIENT_ID=$(inputWithDefault "Keycloak client id (VITE_KEYCLOAK_CLIENT_ID)" "$(getEnvFileValue $envFile VITE_KEYCLOAK_CLIENT_ID)")
-    # The local .env usually holds the dev value (localhost): offer the Raspberry backend instead
-    local restaurantsDefault
-    restaurantsDefault=$(getEnvFileValue $envFile VITE_RESTAURANTS_URL)
-    if [[ -z "$restaurantsDefault" || "$restaurantsDefault" == *localhost* || "$restaurantsDefault" == *127.0.0.1* ]]; then
-        restaurantsDefault=$DEFAULT_RESTAURANTS_URL
-    fi
-    VITE_RESTAURANTS_URL=$(inputWithDefault "Restaurants API URL (VITE_RESTAURANTS_URL)" "$restaurantsDefault")
+    VITE_RESTAURANTS_URL=$(inputWithDefault "Restaurants API URL (VITE_RESTAURANTS_URL)" "$PROFILE_RESTAURANTS_URL")
+    # server.js refuses anything else (a //host value would point to another origin)
+    while ! isValidRestaurantsUrl "$VITE_RESTAURANTS_URL"; do
+        echo -e "${RED}VITE_RESTAURANTS_URL=$VITE_RESTAURANTS_URL must be an absolute https:// URL or a same-origin path such as /restaurants${NC}"
+        VITE_RESTAURANTS_URL=$(inputWithDefault "Restaurants API URL (VITE_RESTAURANTS_URL)" "$PROFILE_RESTAURANTS_URL")
+    done
     warnIfLocalhost VITE_KEYCLOAK_URL "$VITE_KEYCLOAK_URL"
     warnIfLocalhost VITE_RESTAURANTS_URL "$VITE_RESTAURANTS_URL"
     export VITE_KEYCLOAK_URL VITE_KEYCLOAK_REALM VITE_KEYCLOAK_CLIENT_ID VITE_RESTAURANTS_URL
@@ -246,7 +301,7 @@ printHelp() {
     echo -e "under the windfire-ui system user."
     echo
     echo -e "${BOLD}USAGE:${NC}"
-    echo -e "    ./deploy.sh [1] [-f]"
+    echo -e "    ./deploy.sh [1] [-f] [-p lan|public]"
     echo
     echo -e "${BOLD}ARGUMENTS:${NC}"
     echo -e "1                       Deployment platform: 1=Raspberry (prompted if omitted)"
@@ -254,13 +309,18 @@ printHelp() {
     echo -e "${BOLD}OPTIONS:${NC}"
     echo -e "-f, --full              Full deploy: upgrade system packages and install Node.js first"
     echo -e "                        (needed on the first deploy to a Raspberry without Node.js)"
+    echo -e "-p, --profile NAME      Deployment profile from raspberry/conf/config.yaml (prompted if omitted, default lan):"
+    echo -e "                        lan    = Keycloak https://raspberry01:8443, API https://raspberry02:8081/restaurants"
+    echo -e "                        public = Keycloak https://auth.<public_domain>, API /restaurants on the UI's own origin"
+    echo -e "                                 (both reached through the Cloudflare Tunnel)"
     echo -e "-h, --help              Display this help message and exit"
     echo
     echo -e "${BOLD}WHAT THIS SCRIPT DOES:${NC}"
     echo -e "1. Check that ansible-playbook, npm and the Ansible SSH key are available"
     echo -e "2. Ask for the server certificate and key filenames (defaults: $WINDFIRE_SERVER_CERTIFICATE, $WINDFIRE_SERVER_KEY)"
     echo -e "3. Check the production server certificate and key (generated if missing)"
-    echo -e "4. Ask for the Keycloak and Restaurants API settings (defaults from .env)"
+    echo -e "4. Ask for the deployment profile, then the Keycloak and Restaurants API settings"
+    echo -e "   (URL defaults from the profile, realm and client id defaults from .env)"
     echo -e "5. Build the React application with those settings (npm ci && npm run build)"
     echo -e "6. Run the Ansible playbook (asks for the sudo password of user pi on the Raspberry):"
     echo -e "   check the shared Windfire Root CA in /etc/windfire/ca (installed by windfire-raspberry's configure-windfire-infra.sh --tags windfire_ca),"

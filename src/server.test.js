@@ -68,6 +68,27 @@ describe('server.js', () => {
     expect(res.headers['cache-control']).toBe('public, max-age=31536000, immutable');
   });
 
+  test('public profile: same-origin Restaurants path and Keycloak on auth.<domain>', async () => {
+    const env = {
+      VITE_KEYCLOAK_URL:    'https://auth.windfire.cc',
+      VITE_RESTAURANTS_URL: '/restaurants',
+    };
+    const res = await request(createApp({ env, buildDir })).get('/');
+
+    expect(res.status).toBe(200);
+    const csp = res.headers['content-security-policy'];
+    expect(csp).toContain("connect-src 'self' https://auth.windfire.cc;");
+    expect(csp).toContain("form-action 'self' https://auth.windfire.cc;");
+  });
+
+  test('VITE_RESTAURANTS_URL accepts absolute URLs and same-origin paths only', () => {
+    expect(() => validateConfig({ ...ENV, VITE_RESTAURANTS_URL: '/restaurants' })).not.toThrow();
+    expect(() => validateConfig({ ...ENV, VITE_RESTAURANTS_URL: '' })).not.toThrow();
+    for (const bad of ['//evil.example/restaurants', 'restaurants', 'foo:bar']) {
+      expect(() => validateConfig({ ...ENV, VITE_RESTAURANTS_URL: bad })).toThrow(/\.env/);
+    }
+  });
+
   test('a relative VITE_KEYCLOAK_URL fails fast and points to .env', () => {
     const env = { ...ENV, VITE_KEYCLOAK_URL: '/keycloak' };
     expect(() => validateConfig(env)).toThrow(/\.env/);
