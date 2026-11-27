@@ -11,6 +11,8 @@ remote_home_dir: /home/pi
 # Shared, root-owned CA folder installed by windfire-raspberry (configure-windfire-infra.sh --tags windfire_ca): this playbook only checks it
 windfire_ca_dir: /etc/windfire/ca
 windfire_ca_root_certificate: "WindfireRootCA.crt"
+# Keycloak's own Root CA, in the same folder: the redirect URI check calls Keycloak with it
+windfire_ca_keycloak_certificate: "WindfireKeycloakRootCA.crt"
 # Exported by deploy.sh, which asks for the filenames; the fallbacks match the defaults in commons.sh
 windfire_server_certificate: "{{ lookup('env', 'WINDFIRE_SERVER_CERTIFICATE') | default('windfire-ui.crt', true) }}"
 windfire_server_key: "{{ lookup('env', 'WINDFIRE_SERVER_KEY') | default('windfire-ui.key', true) }}"
@@ -27,14 +29,28 @@ https_port: 8445
 # No HTTP -> HTTPS redirect listener: only the HTTPS port is opened
 http_redirect: "false"
 health_check_host: raspberry01
-# Deployment profiles: deploy.sh --profile picks one and offers its URLs as defaults (the prompts allow overriding).
-# The chosen values are bundled into dist/ and exported to the playbook, which writes them to the server's .env.
+# Deployment profiles: deploy.sh --profile picks one and offers its values as defaults (the prompts allow overriding the
+# URLs and the client id). The chosen values are bundled into dist/ and exported to the playbook, which writes the URLs
+# to the server's .env. Both profiles use the production realm: windfire-dev is for local development only (the local
+# .env), and the playbook refuses a bundle built for another realm.
 public_domain: windfire.cc
+windfire_keycloak_realm: windfire
+windfire_keycloak_client_id: windfire
+# Keycloak on the LAN: the playbook checks the UI client's redirect URI here, from raspberry01, in both modes
+# (the authorization endpoint checks redirect URIs the same way whatever hostname it is reached on)
+keycloak_internal_url: https://raspberry01:8443
 deployment_profiles:
   lan:
-    vite_keycloak_url: https://raspberry01:8443
+    vite_keycloak_url: "{{ keycloak_internal_url }}"
+    vite_keycloak_realm: "{{ windfire_keycloak_realm }}"
+    vite_keycloak_client_id: "{{ windfire_keycloak_client_id }}"
     vite_restaurants_url: https://raspberry02:8081/restaurants
+    # Origin browsers open the UI at (not bundled): <app_url>/ must be a Valid redirect URI of the Keycloak client
+    app_url: "https://{{ health_check_host }}:{{ https_port }}"
   public:
     # Through the Cloudflare Tunnel: Keycloak on its own hostname, the Restaurants API on the UI's own origin
     vite_keycloak_url: "https://auth.{{ public_domain }}"
+    vite_keycloak_realm: "{{ windfire_keycloak_realm }}"
+    vite_keycloak_client_id: "{{ windfire_keycloak_client_id }}"
     vite_restaurants_url: /restaurants
+    app_url: "https://app.{{ public_domain }}"

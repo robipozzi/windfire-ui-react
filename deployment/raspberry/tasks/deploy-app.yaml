@@ -30,6 +30,16 @@
     windfire_exposure_keycloak_url: "{{ deployment_profiles[windfire_exposure].vite_keycloak_url | default('') }}"
   when: windfire_exposure_keycloak_url | length > 0 and vite_keycloak_url != windfire_exposure_keycloak_url
 
+# Both profiles use the production realm. windfire-dev (the local .env's realm) keeps its login on the LAN for local
+# development only: its users are its own and no deployed service accepts its tokens.
+- name: Check the bundle's Keycloak realm is the production realm
+  ansible.builtin.fail:
+    msg: >-
+      This build uses VITE_KEYCLOAK_REALM={{ vite_keycloak_realm }}, but a Raspberry deploy must use the production
+      realm {{ windfire_keycloak_realm }} (windfire-dev is for local development only): run deploy.sh again and
+      accept the profile's realm
+  when: vite_keycloak_realm != windfire_keycloak_realm
+
 - name: Check local React build {{ local_windfire_ui_react_dir }}/dist exists
   ansible.builtin.stat:
     path: "{{ local_windfire_ui_react_dir }}/dist/index.html"
@@ -51,6 +61,7 @@
   loop:
     - "{{ windfire_ca_dir }}"
     - "{{ windfire_ca_dir }}/{{ windfire_ca_root_certificate }}"
+    - "{{ windfire_ca_dir }}/{{ windfire_ca_keycloak_certificate }}"
   register: windfire_ca_stat
 
 - name: Fail if the shared CA folder or a CA certificate is missing or writable by anyone but root
@@ -73,6 +84,41 @@
   check_mode: false
   loop:
     - "{{ windfire_ca_root_certificate }}"
+    - "{{ windfire_ca_keycloak_certificate }}"
+
+# Task 0c: Check, before the running service is touched, that the Keycloak client accepts the redirect URI browsers will
+# use (keycloak-js sends the page URL, <app_url>/ on the first login). The authorization endpoint answers an allowed
+# redirect URI with its login page (200) and anything else with an error page (400): no credentials are needed.
+# Asked on the LAN URL in both modes, from raspberry01, because the public hostname sits behind Cloudflare Access.
+# The code_challenge is a fixed S256 value, so a client that requires PKCE still shows its login page.
+- name: Check the Keycloak client accepts the UI's redirect URI
+  uri:
+    url: >-
+      {{ keycloak_internal_url }}/realms/{{ vite_keycloak_realm | urlencode }}/protocol/openid-connect/auth?client_id={{
+      vite_keycloak_client_id | urlencode }}&redirect_uri={{ ui_redirect_uri | urlencode }}&response_type=code&scope=openid&code_challenge_method=S256&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM
+    ca_path: "{{ windfire_ca_dir }}/{{ windfire_ca_keycloak_certificate }}"
+    follow_redirects: none
+    status_code: [200, 302, 400, 404]
+  vars:
+    ui_redirect_uri: "{{ deployment_profiles[ansible_local.windfire.exposure | default('public')].app_url }}/"
+  register: keycloak_redirect_check
+  changed_when: false
+  check_mode: false
+  become: false
+
+- name: Fail if the Keycloak client refuses the UI's redirect URI
+  fail:
+    msg: >-
+      Keycloak ({{ keycloak_internal_url }}) answered {{ keycloak_redirect_check.status }} to client
+      {{ vite_keycloak_client_id }} in realm {{ vite_keycloak_realm }} with redirect URI {{ ui_redirect_uri }}:
+      {{ 'the realm does not exist' if keycloak_redirect_check.status == 404 else
+         'add ' ~ ui_redirect_uri ~ ' to the Valid redirect URIs of the client and its origin to Web origins (or +), or check the client id' }}
+  vars:
+    ui_redirect_uri: "{{ deployment_profiles[ansible_local.windfire.exposure | default('public')].app_url }}/"
+  when: >-
+    not (keycloak_redirect_check.status == 200
+         or (keycloak_redirect_check.status == 302
+             and (keycloak_redirect_check.location | default('')).startswith(ui_redirect_uri)))
 
 # Task 1: Check Node.js runtime on remote server
 - name: Get Node.js version on remote server

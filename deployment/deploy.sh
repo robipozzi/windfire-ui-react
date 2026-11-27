@@ -179,13 +179,15 @@ selectDeploymentProfile()
         DEPLOYMENT_PROFILE=$(inputWithDefault "deployment profile, lan or public (see $CONFIG_FILE)" "$DEFAULT_DEPLOYMENT_PROFILE")
     fi
     PROFILE_KEYCLOAK_URL=$(getProfileValue "$DEPLOYMENT_PROFILE" vite_keycloak_url)
+    PROFILE_KEYCLOAK_REALM=$(getProfileValue "$DEPLOYMENT_PROFILE" vite_keycloak_realm)
+    PROFILE_KEYCLOAK_CLIENT_ID=$(getProfileValue "$DEPLOYMENT_PROFILE" vite_keycloak_client_id)
     PROFILE_RESTAURANTS_URL=$(getProfileValue "$DEPLOYMENT_PROFILE" vite_restaurants_url)
-    if [[ -z "$PROFILE_KEYCLOAK_URL" || -z "$PROFILE_RESTAURANTS_URL" ]]; then
-        echo -e "${RED}Error: profile '$DEPLOYMENT_PROFILE' not found in deployment_profiles of deployment/$CONFIG_FILE (or a URL is missing)${NC}"
+    if [[ -z "$PROFILE_KEYCLOAK_URL" || -z "$PROFILE_KEYCLOAK_REALM" || -z "$PROFILE_KEYCLOAK_CLIENT_ID" || -z "$PROFILE_RESTAURANTS_URL" ]]; then
+        echo -e "${RED}Error: profile '$DEPLOYMENT_PROFILE' not found in deployment_profiles of deployment/$CONFIG_FILE (or a value is missing)${NC}"
         exit 1
     fi
     export DEPLOYMENT_PROFILE
-    echo -e "${GREEN}Profile $DEPLOYMENT_PROFILE: Keycloak $PROFILE_KEYCLOAK_URL, Restaurants API $PROFILE_RESTAURANTS_URL${NC}"
+    echo -e "${GREEN}Profile $DEPLOYMENT_PROFILE: Keycloak $PROFILE_KEYCLOAK_URL (realm $PROFILE_KEYCLOAK_REALM, client $PROFILE_KEYCLOAK_CLIENT_ID), Restaurants API $PROFILE_RESTAURANTS_URL${NC}"
     echo
 }
 
@@ -235,15 +237,20 @@ collectAppConfig()
 {
     printBanner "Collect application configuration"
     echo -e "${WHITE}These values are bundled into the React build and are public: do not use secrets here${NC}"
-    local envFile=../.env
     VITE_KEYCLOAK_URL=$(inputWithDefault "Keycloak URL (VITE_KEYCLOAK_URL)" "$PROFILE_KEYCLOAK_URL")
     # server.js refuses to start with a relative Keycloak URL (left over from the removed /keycloak proxy)
     while [[ "$VITE_KEYCLOAK_URL" == /* ]]; do
         echo -e "${RED}VITE_KEYCLOAK_URL=$VITE_KEYCLOAK_URL is relative: the /keycloak proxy has been removed. Enter the absolute https:// URL of Keycloak (and fix it in .env)${NC}"
         VITE_KEYCLOAK_URL=$(inputWithDefault "Keycloak URL (VITE_KEYCLOAK_URL)" "")
     done
-    VITE_KEYCLOAK_REALM=$(inputWithDefault "Keycloak realm (VITE_KEYCLOAK_REALM)" "$(getEnvFileValue $envFile VITE_KEYCLOAK_REALM)")
-    VITE_KEYCLOAK_CLIENT_ID=$(inputWithDefault "Keycloak client id (VITE_KEYCLOAK_CLIENT_ID)" "$(getEnvFileValue $envFile VITE_KEYCLOAK_CLIENT_ID)")
+    # Realm and client id come from the profile, never from the local .env (its windfire-dev realm is for local
+    # development only). The playbook refuses any other realm, so refuse it here, before the build.
+    VITE_KEYCLOAK_REALM=$(inputWithDefault "Keycloak realm (VITE_KEYCLOAK_REALM)" "$PROFILE_KEYCLOAK_REALM")
+    while [[ "$VITE_KEYCLOAK_REALM" != "$PROFILE_KEYCLOAK_REALM" ]]; do
+        echo -e "${RED}VITE_KEYCLOAK_REALM=$VITE_KEYCLOAK_REALM: a Raspberry deploy uses the production realm $PROFILE_KEYCLOAK_REALM (windfire-dev is for local development only)${NC}"
+        VITE_KEYCLOAK_REALM=$(inputWithDefault "Keycloak realm (VITE_KEYCLOAK_REALM)" "$PROFILE_KEYCLOAK_REALM")
+    done
+    VITE_KEYCLOAK_CLIENT_ID=$(inputWithDefault "Keycloak client id (VITE_KEYCLOAK_CLIENT_ID)" "$PROFILE_KEYCLOAK_CLIENT_ID")
     VITE_RESTAURANTS_URL=$(inputWithDefault "Restaurants API URL (VITE_RESTAURANTS_URL)" "$PROFILE_RESTAURANTS_URL")
     # server.js refuses anything else (a //host value would point to another origin)
     while ! isValidRestaurantsUrl "$VITE_RESTAURANTS_URL"; do
@@ -320,10 +327,11 @@ printHelp() {
     echo -e "2. Ask for the server certificate and key filenames (defaults: $WINDFIRE_SERVER_CERTIFICATE, $WINDFIRE_SERVER_KEY)"
     echo -e "3. Check the production server certificate and key (generated if missing)"
     echo -e "4. Ask for the deployment profile, then the Keycloak and Restaurants API settings"
-    echo -e "   (URL defaults from the profile, realm and client id defaults from .env)"
+    echo -e "   (defaults from the profile; the realm must be the profile's production realm, never the local .env's windfire-dev)"
     echo -e "5. Build the React application with those settings (npm ci && npm run build)"
     echo -e "6. Run the Ansible playbook (asks for the sudo password of user pi on the Raspberry):"
-    echo -e "   check the shared Windfire Root CA in /etc/windfire/ca (installed by windfire-raspberry's configure-windfire-infra.sh --tags windfire_ca),"
+    echo -e "   check the realm, the shared Windfire CAs in /etc/windfire/ca (installed by windfire-raspberry's configure-windfire-infra.sh --tags windfire_ca)"
+    echo -e "   and that the Keycloak client accepts the UI's redirect URI,"
     echo -e "   deploy, start the systemd service and health-check it"
     echo
     echo -e "${BOLD}EXIT CODES:${NC}"
